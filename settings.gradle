@@ -1,0 +1,3 @@
+rootProject.name = 'eta-notifier'
+include ':app'
+
