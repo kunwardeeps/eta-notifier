@@ -4,16 +4,18 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import com.example.etanotifier.adapter.RouteAdapter;
 import com.example.etanotifier.model.Route;
 import com.example.etanotifier.model.Schedule;
@@ -21,13 +23,37 @@ import com.example.etanotifier.receiver.RouteAlarmReceiver;
 import com.example.etanotifier.util.NotificationScheduler;
 import com.example.etanotifier.network.GoogleMapsApiService;
 import com.example.etanotifier.BuildConfig;
+import com.example.etanotifier.util.RouteUtils;
+import com.example.etanotifier.util.RouteStorage;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.tasks.Task;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.AutocompletePrediction;
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.net.FetchPlaceRequest;
+import com.google.android.libraries.places.api.net.FetchPlaceResponse;
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
+import com.google.android.libraries.places.api.net.PlacesClient;
+import android.widget.ArrayAdapter;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.AutoCompleteTextView;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private List<Route> routes = new ArrayList<>();
     private RouteAdapter adapter;
+    private PlacesClient placesClient;
+    private AutocompleteSessionToken sessionToken;
+    private static final int REQUEST_CODE_POST_NOTIFICATIONS = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,13 +65,35 @@ public class MainActivity extends AppCompatActivity {
         adapter = new RouteAdapter(this, routes);
         lvRoutes.setAdapter(adapter);
 
+        // Initialize Places API
+        if (!Places.isInitialized()) {
+            Places.initialize(getApplicationContext(), BuildConfig.GOOGLE_MAPS_API_KEY);
+        }
+        placesClient = Places.createClient(this);
+        sessionToken = AutocompleteSessionToken.newInstance();
+
+        checkAndRequestNotificationPermission();
+
         btnAddRoute.setOnClickListener(v -> showAddRouteDialog());
+    }
+
+    private void checkAndRequestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE_POST_NOTIFICATIONS);
+            }
+        }
     }
 
     private void showAddRouteDialog() {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        EditText etStart = new EditText(this); etStart.setHint("Start location");
-        EditText etEnd = new EditText(this); etEnd.setHint("End location");
+        AutoCompleteTextView etStart = new AutoCompleteTextView(this); etStart.setHint("Start location");
+        AutoCompleteTextView etEnd = new AutoCompleteTextView(this); etEnd.setHint("End location");
+        // Maps to store suggestion text to placeId for each field
+        java.util.Map<String, String> startSuggestionPlaceIdMap = new java.util.HashMap<>();
+        java.util.Map<String, String> endSuggestionPlaceIdMap = new java.util.HashMap<>();
+        setupAutocomplete(etStart, startSuggestionPlaceIdMap);
+        setupAutocomplete(etEnd, endSuggestionPlaceIdMap);
         Button btnTime = new Button(this); btnTime.setText("Pick time");
         Button btnTest = new Button(this); btnTest.setText("Test");
         final int[] hour = {8};
@@ -65,12 +113,18 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton("Add", (dialog, which) -> {
             String start = etStart.getText().toString();
             String end = etEnd.getText().toString();
+            String startPlaceId = startSuggestionPlaceIdMap.get(start);
+            String endPlaceId = endSuggestionPlaceIdMap.get(end);
             if (start.isEmpty() || end.isEmpty()) {
                 Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
                 return;
             }
+            if (startPlaceId == null || endPlaceId == null) {
+                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+                return;
+            }
             Schedule schedule = new Schedule(hour[0], minute[0], 1440); // daily
-            Route route = new Route(String.valueOf(System.currentTimeMillis()), start, end, schedule);
+            Route route = new Route(String.valueOf(System.currentTimeMillis()), start, end, startPlaceId, endPlaceId, schedule);
             routes.add(route);
             adapter.notifyDataSetChanged();
             scheduleRouteNotification(route);
@@ -81,52 +135,53 @@ public class MainActivity extends AppCompatActivity {
         btnTest.setOnClickListener(v -> {
             String start = etStart.getText().toString();
             String end = etEnd.getText().toString();
-            if (start.isEmpty() || end.isEmpty()) {
-                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-                return;
+            String startPlaceId = startSuggestionPlaceIdMap.get(start);
+            String endPlaceId = endSuggestionPlaceIdMap.get(end);
+            Route route = new Route("test", start, end, startPlaceId, endPlaceId, null);
+            testRouteAndNotify(route);
+        });
+    }
+
+    // Overloaded setupAutocomplete to accept a placeId map
+    private void setupAutocomplete(AutoCompleteTextView autoCompleteTextView, java.util.Map<String, String> suggestionPlaceIdMap) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line);
+        autoCompleteTextView.setAdapter(adapter);
+        autoCompleteTextView.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s.length() < 5) return;
+                FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
+                        .setQuery(s.toString())
+                        .setSessionToken(sessionToken)
+                        .build();
+                placesClient.findAutocompletePredictions(request)
+                        .addOnSuccessListener(response -> {
+                            adapter.clear();
+                            suggestionPlaceIdMap.clear();
+                            for (AutocompletePrediction prediction : response.getAutocompletePredictions()) {
+                                String text = prediction.getFullText(null).toString();
+                                String placeId = prediction.getPlaceId();
+                                adapter.add(text);
+                                suggestionPlaceIdMap.put(text, placeId);
+                            }
+                            adapter.notifyDataSetChanged();
+                        })
+                        .addOnFailureListener(exception -> {
+                            Toast.makeText(MainActivity.this, "Autocomplete failed: " + exception.getMessage(), Toast.LENGTH_LONG).show();
+                        });
             }
-            // For demo: treat start/end as comma-separated lat,lng (e.g. "37.420761,-122.081356")
-            try {
-                String[] startParts = start.split(",");
-                String[] endParts = end.split(",");
-                double startLat = Double.parseDouble(startParts[0].trim());
-                double startLng = Double.parseDouble(startParts[1].trim());
-                double endLat = Double.parseDouble(endParts[0].trim());
-                double endLng = Double.parseDouble(endParts[1].trim());
-                String requestBody = "{\"origins\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + startLat + ",\"longitude\":" + startLng + "}}},\"routeModifiers\":{\"avoid_ferries\":true}}],\"destinations\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + endLat + ",\"longitude\":" + endLng + "}}}}],\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}";
-                String fieldMask = "originIndex,destinationIndex,duration,distanceMeters,status,condition";
-                new Thread(() -> {
-                    String apiKey = BuildConfig.GOOGLE_MAPS_API_KEY;
-                    GoogleMapsApiService apiService = new GoogleMapsApiService(apiKey);
-                    String message;
-                    try {
-                        org.json.JSONArray result = apiService.computeRouteMatrix(requestBody, fieldMask);
-                        if (result != null && result.length() > 0) {
-                            org.json.JSONObject obj = result.getJSONObject(0);
-                            String duration = obj.optString("duration", "?");
-                            int distance = obj.optInt("distanceMeters", -1);
-                            message = "ETA: " + duration + ", Distance: " + (distance >= 0 ? distance + "m" : "?");
-                        } else {
-                            message = "No route found or empty response.";
-                        }
-                    } catch (Exception ex) {
-                        message = "API call failed: " + ex.getMessage();
-                    }
-                    String finalMessage = message;
-                    runOnUiThread(() -> showNotification(finalMessage));
-                }).start();
-            } catch (Exception parseEx) {
-                showNotification("Invalid input. Use: lat,lng");
-            }
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
     }
 
     private void scheduleRouteNotification(Route route) {
         Calendar cal = route.getSchedule().getNextScheduledTime();
         Intent intent = new Intent(this, RouteAlarmReceiver.class);
-        intent.putExtra("start_location", route.getStartLocation());
-        intent.putExtra("end_location", route.getEndLocation());
         intent.putExtra("route_id", route.getId());
+        RouteStorage.saveRoute(this, route);
         NotificationScheduler.scheduleNotification(this, cal.getTimeInMillis(), intent, route.getId().hashCode());
         Toast.makeText(this, "Notification scheduled", Toast.LENGTH_SHORT).show();
     }
@@ -144,5 +199,50 @@ public class MainActivity extends AppCompatActivity {
                 .setContentText(message)
                 .setAutoCancel(true);
         notificationManager.notify(1001, builder.build());
+    }
+
+    // Modular method to test a route and show notification
+    private void testRouteAndNotify(Route route) {
+        if (route.getStartLocation().isEmpty() || route.getEndLocation().isEmpty()) {
+            Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (route.getStartPlaceId() == null || route.getEndPlaceId() == null) {
+            Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<Place.Field> placeFields = Arrays.asList(Place.Field.LOCATION);
+        Task<FetchPlaceResponse> startTask = placesClient.fetchPlace(
+                FetchPlaceRequest.newInstance(route.getStartPlaceId(), placeFields)
+        );
+        Task<FetchPlaceResponse> endTask = placesClient.fetchPlace(
+                FetchPlaceRequest.newInstance(route.getEndPlaceId(), placeFields)
+        );
+        startTask.addOnSuccessListener(startResponse -> {
+            Place startPlace = startResponse.getPlace();
+            LatLng startLatLng = startPlace.getLocation();
+            if (startLatLng == null) {
+                showNotification("Could not resolve coordinates for start address.");
+                return;
+            }
+            endTask.addOnSuccessListener(endResponse -> {
+                Place endPlace = endResponse.getPlace();
+                LatLng endLatLng = endPlace.getLocation();
+                if (endLatLng == null) {
+                    showNotification("Could not resolve coordinates for end address.");
+                    return;
+                }
+                String apiKey = BuildConfig.GOOGLE_MAPS_API_KEY;
+                RouteUtils.fetchRouteEtaAndDistance(
+                    this,
+                    String.valueOf(startLatLng.latitude),
+                    String.valueOf(startLatLng.longitude),
+                    String.valueOf(endLatLng.latitude),
+                    String.valueOf(endLatLng.longitude),
+                    apiKey,
+                    this::showNotification
+                );
+            }).addOnFailureListener(e -> showNotification("Failed to resolve end address: " + e.getMessage()));
+        }).addOnFailureListener(e -> showNotification("Failed to resolve start address: " + e.getMessage()));
     }
 }
