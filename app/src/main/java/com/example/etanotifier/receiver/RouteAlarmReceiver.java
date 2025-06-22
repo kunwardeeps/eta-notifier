@@ -3,6 +3,7 @@ package com.example.etanotifier.receiver;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import com.example.etanotifier.BuildConfig;
 import com.example.etanotifier.network.GoogleMapsApiService;
 
 public class RouteAlarmReceiver extends BroadcastReceiver {
@@ -10,8 +11,10 @@ public class RouteAlarmReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String startLocation = intent.getStringExtra("start_location");
         String endLocation = intent.getStringExtra("end_location");
-        int routeId = intent.getIntExtra("route_id", -1);
-        // Call Google Maps API and notify user (to be implemented)
-        GoogleMapsApiService.fetchEtaAndDistance(context, startLocation, endLocation, routeId);
+        // Load API key from BuildConfig
+        String apiKey = BuildConfig.GOOGLE_MAPS_API_KEY;
+        GoogleMapsApiService apiService = new GoogleMapsApiService(apiKey);
+        apiService.getRouteInfo(startLocation, endLocation);
+        // TODO: Handle the result and notify user
     }
 }

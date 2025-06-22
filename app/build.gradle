@@ -6,12 +6,23 @@ android {
     namespace 'com.example.etanotifier'
     compileSdk 34
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "com.example.etanotifier"
         minSdk 21
         targetSdk 34
         versionCode 1
         versionName "1.0"
+        def localProperties = new Properties()
+        def localPropertiesFile = rootProject.file('local.properties')
+        if (localPropertiesFile.exists()) {
+            localProperties.load(new FileInputStream(localPropertiesFile))
+        }
+        def mapsApiKey = localProperties.getProperty('GOOGLE_MAPS_API_KEY', '')
+        buildConfigField "String", "GOOGLE_MAPS_API_KEY", '"' + mapsApiKey + '"'
     }
 
     buildTypes {
@@ -27,4 +38,3 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 }
-
