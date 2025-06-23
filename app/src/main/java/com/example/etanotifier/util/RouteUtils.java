@@ -13,7 +13,7 @@ public class RouteUtils {
     }
 
     public static void fetchRouteEtaAndDistance(Context context, String startLat, String startLng, String endLat, String endLng, String apiKey, RouteResultCallback callback) {
-        String requestBody = "{\"origins\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + startLat + ",\"longitude\":" + startLng + "}}},\"routeModifiers\":{\"avoid_ferries\":true}}],\"destinations\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + endLat + ",\"longitude\":" + endLng + "}}}}],\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}";
+        String requestBody = "{\"origins\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + startLat + ",\"longitude\":" + startLng + "}}},\"routeModifiers\":{\"avoidTolls\":true}}],\"destinations\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + endLat + ",\"longitude\":" + endLng + "}}}}],\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}";
         String fieldMask = "originIndex,destinationIndex,duration,distanceMeters,status,condition";
         new Thread(() -> {
             GoogleMapsApiService apiService = new GoogleMapsApiService(apiKey);
@@ -24,7 +24,30 @@ public class RouteUtils {
                     JSONObject obj = result.getJSONObject(0);
                     String duration = obj.optString("duration", "?");
                     int distance = obj.optInt("distanceMeters", -1);
-                    message = "ETA: " + duration + ", Distance: " + (distance >= 0 ? distance + "m" : "?");
+                    // Convert meters to miles
+                    String distanceStr = "?";
+                    if (distance >= 0) {
+                        double miles = distance / 1609.34;
+                        distanceStr = String.format("%.2f mi", miles);
+                    }
+                    // Convert duration (e.g., "123s") to minutes
+                    String etaStr = "?";
+                    if (!duration.equals("?")) {
+                        try {
+                            int seconds = 0;
+                            if (duration.endsWith("s")) {
+                                seconds = Integer.parseInt(duration.replace("s", ""));
+                            } else if (duration.endsWith("m")) {
+                                // fallback for minutes, e.g., "5m"
+                                seconds = Integer.parseInt(duration.replace("m", "")) * 60;
+                            }
+                            int minutes = (int) Math.round(seconds / 60.0);
+                            etaStr = minutes + " min";
+                        } catch (Exception e) {
+                            etaStr = duration;
+                        }
+                    }
+                    message = "ETA: " + etaStr + ", Distance: " + distanceStr;
                 } else {
                     message = "No route found or empty response.";
                 }
@@ -36,4 +59,3 @@ public class RouteUtils {
         }).start();
     }
 }
-
