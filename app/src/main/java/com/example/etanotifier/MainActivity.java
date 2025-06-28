@@ -21,6 +21,7 @@ import com.example.etanotifier.model.Route;
 import com.example.etanotifier.model.Schedule;
 import com.example.etanotifier.network.PlacesHelper;
 import com.example.etanotifier.route.RouteManager;
+import com.example.etanotifier.route.RouteUtils;
 import com.example.etanotifier.util.AlarmManagerHelper;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
@@ -129,12 +130,16 @@ public class MainActivity extends AppCompatActivity {
             hour[0] = h; minute[0] = m;
             btnTime.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", h, m));
         }, hour[0], minute[0], true).show());
+
+        Button btnTest = new Button(this); btnTest.setText("Test");
+
         android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
         layout.addView(etStart);
         layout.addView(etEnd);
         layout.addView(daysLayout, 2);
         layout.addView(btnTime);
+        layout.addView(btnTest);
         builder.setView(layout);
         builder.setTitle("Add Route");
         builder.setPositiveButton("Add", (dialog, which) -> {
@@ -163,7 +168,9 @@ public class MainActivity extends AppCompatActivity {
             AlarmManagerHelper.scheduleRouteNotification(this, route);
         });
         builder.setNegativeButton("Cancel", null);
-        builder.create().show();
+        android.app.AlertDialog dialog = builder.create();
+        dialog.show();
+        btnTest.setOnClickListener(v -> testRouteAndNotify(etStart.getText().toString(), etEnd.getText().toString(), startSuggestionPlaceIdMap.get(etStart.getText().toString()), endSuggestionPlaceIdMap.get(etEnd.getText().toString())));
     }
 
     private void showEditRouteDialog(Route route, int position) {
@@ -200,12 +207,16 @@ public class MainActivity extends AppCompatActivity {
             hour[0] = h; minute[0] = m;
             btnTime.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", h, m));
         }, hour[0], minute[0], true).show());
+
+        Button btnTest = new Button(this); btnTest.setText("Test");
+
         android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
         layout.addView(etStart);
         layout.addView(etEnd);
         layout.addView(daysLayout, 2);
         layout.addView(btnTime);
+        layout.addView(btnTest);
         builder.setView(layout);
         builder.setTitle("Edit Route");
         builder.setPositiveButton("Save", (dialog, which) -> {
@@ -239,6 +250,57 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Route updated", Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton("Cancel", null);
-        builder.create().show();
+        android.app.AlertDialog dialog = builder.create();
+        dialog.show();
+        btnTest.setOnClickListener(v -> testRouteAndNotify(
+            etStart.getText().toString(),
+            etEnd.getText().toString(),
+            startSuggestionPlaceIdMap.containsKey(etStart.getText().toString()) ? startSuggestionPlaceIdMap.get(etStart.getText().toString()) : route.getStartPlaceId(),
+            endSuggestionPlaceIdMap.containsKey(etEnd.getText().toString()) ? endSuggestionPlaceIdMap.get(etEnd.getText().toString()) : route.getEndPlaceId()
+        ));
+    }
+
+    private void testRouteAndNotify(String start, String end, String startPlaceId, String endPlaceId) {
+        if (start.isEmpty() || end.isEmpty()) {
+            Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (startPlaceId == null || endPlaceId == null) {
+            Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.List<com.google.android.libraries.places.api.model.Place.Field> placeFields = java.util.Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.LOCATION);
+        com.google.android.gms.tasks.Task<com.google.android.libraries.places.api.net.FetchPlaceResponse> startTask = placesClient.fetchPlace(
+                com.google.android.libraries.places.api.net.FetchPlaceRequest.newInstance(startPlaceId, placeFields)
+        );
+        com.google.android.gms.tasks.Task<com.google.android.libraries.places.api.net.FetchPlaceResponse> endTask = placesClient.fetchPlace(
+                com.google.android.libraries.places.api.net.FetchPlaceRequest.newInstance(endPlaceId, placeFields)
+        );
+        startTask.addOnSuccessListener(startResponse -> {
+            com.google.android.libraries.places.api.model.Place startPlace = startResponse.getPlace();
+            com.google.android.gms.maps.model.LatLng startLatLng = startPlace.getLocation();
+            if (startLatLng == null) {
+                Toast.makeText(this, "Could not resolve coordinates for start address.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            endTask.addOnSuccessListener(endResponse -> {
+                com.google.android.libraries.places.api.model.Place endPlace = endResponse.getPlace();
+                com.google.android.gms.maps.model.LatLng endLatLng = endPlace.getLocation();
+                if (endLatLng == null) {
+                    Toast.makeText(this, "Could not resolve coordinates for end address.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                String apiKey = BuildConfig.GOOGLE_MAPS_API_KEY;
+                RouteUtils.fetchRouteEtaAndDistance(
+                    this,
+                    String.valueOf(startLatLng.latitude),
+                    String.valueOf(startLatLng.longitude),
+                    String.valueOf(endLatLng.latitude),
+                    String.valueOf(endLatLng.longitude),
+                    apiKey,
+                    message -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                );
+            }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve end address: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve start address: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 }

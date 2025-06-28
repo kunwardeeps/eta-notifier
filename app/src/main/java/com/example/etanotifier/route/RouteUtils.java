@@ -1,4 +1,4 @@
-package com.example.etanotifier.util;
+package com.example.etanotifier.route;
 
 import android.content.Context;
 import android.os.Handler;
