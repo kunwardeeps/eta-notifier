@@ -1,4 +1,4 @@
-package com.example.etanotifier.route;
+package com.example.etanotifier.util;
 
 import android.content.Context;
 import android.os.Handler;
@@ -13,7 +13,7 @@ public class RouteUtils {
     }
 
     public static void fetchRouteEtaAndDistance(Context context, String startLat, String startLng, String endLat, String endLng, String apiKey, RouteResultCallback callback) {
-        String requestBody = "{\"origins\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + startLat + ",\"longitude\":" + startLng + "}}},\"routeModifiers\":{\"avoid_ferries\":true}}],\"destinations\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + endLat + ",\"longitude\":" + endLng + "}}}}],\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}";
+        String requestBody = "{\"origins\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + startLat + ",\"longitude\":" + startLng + "}}},\"routeModifiers\":{\"avoidTolls\":true}}],\"destinations\":[{\"waypoint\":{\"location\":{\"latLng\":{\"latitude\":" + endLat + ",\"longitude\":" + endLng + "}}}}],\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}";
         String fieldMask = "originIndex,destinationIndex,duration,distanceMeters,status,condition";
         new Thread(() -> {
             GoogleMapsApiService apiService = new GoogleMapsApiService(apiKey);
