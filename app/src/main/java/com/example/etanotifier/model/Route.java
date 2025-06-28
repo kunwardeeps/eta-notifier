@@ -7,14 +7,20 @@ public class Route {
     private String startPlaceId;
     private String endPlaceId;
     private Schedule schedule;
+    private boolean enabled = true;
 
     public Route(String id, String startLocation, String endLocation, String startPlaceId, String endPlaceId, Schedule schedule) {
+        this(id, startLocation, endLocation, startPlaceId, endPlaceId, schedule, true);
+    }
+
+    public Route(String id, String startLocation, String endLocation, String startPlaceId, String endPlaceId, Schedule schedule, boolean enabled) {
         this.id = id;
         this.startLocation = startLocation;
         this.endLocation = endLocation;
         this.startPlaceId = startPlaceId;
         this.endPlaceId = endPlaceId;
         this.schedule = schedule;
+        this.enabled = enabled;
     }
 
     public String getId() { return id; }
@@ -23,6 +29,7 @@ public class Route {
     public String getStartPlaceId() { return startPlaceId; }
     public String getEndPlaceId() { return endPlaceId; }
     public Schedule getSchedule() { return schedule; }
+    public boolean isEnabled() { return enabled; }
 
     public void setId(String id) { this.id = id; }
     public void setStartLocation(String startLocation) { this.startLocation = startLocation; }
@@ -30,4 +37,5 @@ public class Route {
     public void setStartPlaceId(String startPlaceId) { this.startPlaceId = startPlaceId; }
     public void setEndPlaceId(String endPlaceId) { this.endPlaceId = endPlaceId; }
     public void setSchedule(Schedule schedule) { this.schedule = schedule; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

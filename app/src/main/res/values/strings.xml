@@ -1,3 +1,13 @@
 <resources>
+    <string name="route_title_format">%1$s → %2$s</string>
+    <string name="route_schedule_format">Schedule: %1$d:%2$02d</string>
+    <string name="route_title_placeholder">Route Title</string>
+    <string name="schedule_info_placeholder">Schedule Info</string>
+    <string name="enable">Enable</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
     <string name="app_name">ETA Notifier</string>
+    <string name="pick_time">Pick time</string>
+    <string name="test">Test</string>
 </resources>
+

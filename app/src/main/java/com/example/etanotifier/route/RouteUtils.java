@@ -1,4 +1,4 @@
-package com.example.etanotifier.util;
+package com.example.etanotifier.route;
 
 import android.content.Context;
 import android.os.Handler;
@@ -24,7 +24,29 @@ public class RouteUtils {
                     JSONObject obj = result.getJSONObject(0);
                     String duration = obj.optString("duration", "?");
                     int distance = obj.optInt("distanceMeters", -1);
-                    message = "ETA: " + duration + ", Distance: " + (distance >= 0 ? distance + "m" : "?");
+                    int etaMinutes = -1;
+                    if (duration != null && duration.contains("m")) {
+                        // e.g. "3600s" or "65m"
+                        if (duration.endsWith("s")) {
+                            try {
+                                int seconds = Integer.parseInt(duration.replace("s", ""));
+                                etaMinutes = (int) Math.round(seconds / 60.0);
+                            } catch (Exception ignore) {}
+                        } else if (duration.endsWith("m")) {
+                            try {
+                                etaMinutes = Integer.parseInt(duration.replace("m", ""));
+                            } catch (Exception ignore) {}
+                        }
+                    } else if (duration != null && duration.endsWith("s")) {
+                        try {
+                            int seconds = Integer.parseInt(duration.replace("s", ""));
+                            etaMinutes = (int) Math.round(seconds / 60.0);
+                        } catch (Exception ignore) {}
+                    }
+                    double miles = distance >= 0 ? distance / 1609.34 : -1;
+                    String milesStr = miles >= 0 ? String.format("%.2f", miles) : "?";
+                    String etaStr = etaMinutes >= 0 ? etaMinutes + " min" : duration;
+                    message = "ETA: " + etaStr + ", Distance: " + milesStr + " miles";
                 } else {
                     message = "No route found or empty response.";
                 }

@@ -1,4 +1,4 @@
-package com.example.etanotifier.util;
+package com.example.etanotifier.route;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -37,8 +37,16 @@ public class RouteStorage {
                 sched.put("hour", route.getSchedule().getHour());
                 sched.put("minute", route.getSchedule().getMinute());
                 sched.put("intervalMinutes", route.getSchedule().getRepeatIntervalMinutes());
+                if (route.getSchedule().getDaysOfWeek() != null) {
+                    org.json.JSONArray daysArr = new org.json.JSONArray();
+                    for (Integer day : route.getSchedule().getDaysOfWeek()) {
+                        daysArr.put(day);
+                    }
+                    sched.put("daysOfWeek", daysArr);
+                }
                 obj.put("schedule", sched);
             }
+            obj.put("enabled", route.isEnabled());
             return obj.toString();
         } catch (JSONException e) {
             return null;
@@ -57,15 +65,40 @@ public class RouteStorage {
             if (obj.has("schedule")) {
                 JSONObject sched = obj.getJSONObject("schedule");
                 int intervalMinutes = sched.getInt("intervalMinutes");
-                schedule = new Schedule(
-                    sched.getInt("hour"),
-                    sched.getInt("minute"),
-                    intervalMinutes
-                );
+                int hour = sched.getInt("hour");
+                int minute = sched.getInt("minute");
+                java.util.Set<Integer> daysOfWeek = null;
+                if (sched.has("daysOfWeek")) {
+                    daysOfWeek = new java.util.HashSet<>();
+                    org.json.JSONArray daysArr = sched.getJSONArray("daysOfWeek");
+                    for (int i = 0; i < daysArr.length(); i++) {
+                        daysOfWeek.add(daysArr.getInt(i));
+                    }
+                }
+                schedule = new Schedule(hour, minute, intervalMinutes, daysOfWeek);
             }
-            return new Route(id, startLocation, endLocation, startPlaceId, endPlaceId, schedule);
+            boolean enabled = obj.has("enabled") ? obj.getBoolean("enabled") : true;
+            return new Route(id, startLocation, endLocation, startPlaceId, endPlaceId, schedule, enabled);
         } catch (JSONException e) {
             return null;
         }
+    }
+
+    public static java.util.List<Route> getAllRoutes(Context context) {
+        java.util.List<Route> routes = new java.util.ArrayList<>();
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        for (String key : prefs.getAll().keySet()) {
+            String json = prefs.getString(key, null);
+            if (json != null) {
+                Route route = jsonToRoute(json);
+                if (route != null) routes.add(route);
+            }
+        }
+        return routes;
+    }
+
+    public static void deleteRoute(Context context, String routeId) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().remove(routeId).apply();
     }
 }
