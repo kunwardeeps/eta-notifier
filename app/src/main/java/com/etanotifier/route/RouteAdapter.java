@@ -1,4 +1,4 @@
-package com.example.etanotifier.adapter;
+package com.etanotifier.route;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,9 +8,9 @@ import android.widget.BaseAdapter;
 import android.widget.TextView;
 import android.widget.ImageButton;
 import androidx.appcompat.widget.SwitchCompat;
-import com.example.etanotifier.R;
-import com.example.etanotifier.model.Route;
-import com.example.etanotifier.model.Schedule;
+import com.etanotifier.R;
+import com.etanotifier.model.Route;
+import com.etanotifier.model.Schedule;
 import java.util.List;
 
 public class RouteAdapter extends BaseAdapter {

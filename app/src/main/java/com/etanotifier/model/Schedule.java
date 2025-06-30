@@ -1,7 +1,6 @@
-package com.example.etanotifier.model;
+package com.etanotifier.model;
 
 import java.util.Calendar;
-import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 

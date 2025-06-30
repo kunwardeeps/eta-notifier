@@ -1,6 +1,5 @@
-package com.example.etanotifier.network;
+package com.etanotifier.service;
 
-import android.content.Context;
 import android.util.Log;
 
 import org.json.JSONArray;

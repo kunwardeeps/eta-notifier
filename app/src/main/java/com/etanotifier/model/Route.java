@@ -1,4 +1,4 @@
-package com.example.etanotifier.model;
+package com.etanotifier.model;
 
 public class Route {
     private String id;

@@ -1,4 +1,4 @@
-package com.example.etanotifier.receiver;
+package com.etanotifier.receiver;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -7,10 +7,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
-import com.example.etanotifier.BuildConfig;
-import com.example.etanotifier.model.Route;
-import com.example.etanotifier.route.RouteStorage;
-import com.example.etanotifier.route.RouteUtils;
+import com.etanotifier.BuildConfig;
+import com.etanotifier.model.Route;
+import com.etanotifier.route.RouteStorage;
+import com.etanotifier.route.RouteUtils;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;

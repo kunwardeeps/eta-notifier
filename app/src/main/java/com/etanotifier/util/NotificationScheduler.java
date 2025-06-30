@@ -1,4 +1,4 @@
-package com.example.etanotifier.util;
+package com.etanotifier.util;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;

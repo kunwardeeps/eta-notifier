@@ -1,9 +1,9 @@
-package com.example.etanotifier.route;
+package com.etanotifier.route;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import com.example.etanotifier.network.GoogleMapsApiService;
+import com.etanotifier.service.GoogleMapsApiService;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

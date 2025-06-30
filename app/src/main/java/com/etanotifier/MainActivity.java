@@ -1,4 +1,4 @@
-package com.example.etanotifier;
+package com.etanotifier;
 
 import android.app.TimePickerDialog;
 import android.app.AlarmManager;
@@ -16,13 +16,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import com.example.etanotifier.adapter.RouteAdapter;
-import com.example.etanotifier.model.Route;
-import com.example.etanotifier.model.Schedule;
-import com.example.etanotifier.network.PlacesHelper;
-import com.example.etanotifier.route.RouteManager;
-import com.example.etanotifier.route.RouteUtils;
-import com.example.etanotifier.util.AlarmManagerHelper;
+import com.etanotifier.route.RouteAdapter;
+import com.etanotifier.model.Route;
+import com.etanotifier.model.Schedule;
+import com.etanotifier.service.PlacesHelper;
+import com.etanotifier.route.RouteManager;
+import com.etanotifier.route.RouteUtils;
+import com.etanotifier.util.AlarmManagerHelper;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
 

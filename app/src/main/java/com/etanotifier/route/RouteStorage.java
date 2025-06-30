@@ -1,9 +1,9 @@
-package com.example.etanotifier.route;
+package com.etanotifier.route;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import com.example.etanotifier.model.Route;
-import com.example.etanotifier.model.Schedule;
+import com.etanotifier.model.Route;
+import com.etanotifier.model.Schedule;
 import org.json.JSONObject;
 import org.json.JSONException;
 

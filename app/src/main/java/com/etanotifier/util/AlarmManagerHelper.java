@@ -1,13 +1,13 @@
-package com.example.etanotifier.util;
+package com.etanotifier.util;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.widget.Toast;
-import com.example.etanotifier.model.Route;
-import com.example.etanotifier.receiver.RouteAlarmReceiver;
-import com.example.etanotifier.route.RouteManager;
+import com.etanotifier.model.Route;
+import com.etanotifier.receiver.RouteAlarmReceiver;
+import com.etanotifier.route.RouteManager;
 import java.util.Calendar;
 
 public class AlarmManagerHelper {
