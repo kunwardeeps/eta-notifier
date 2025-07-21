@@ -45,10 +45,25 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Register the launcher during onCreate
         exactAlarmPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
-            result -> {}
+            result -> {
+                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                    Toast.makeText(this, "Exact alarm permission granted", Toast.LENGTH_SHORT).show();
+                    // Reschedule all enabled routes
+                    for (Route route : routes) {
+                        if (route.isEnabled()) {
+                            AlarmManagerHelper.scheduleRouteNotification(this, route);
+                        }
+                    }
+                } else {
+                    Toast.makeText(this, "Exact alarm permission denied. Route notifications may not be precise.", Toast.LENGTH_LONG).show();
+                }
+            }
         );
+
         checkAndRequestExactAlarmPermission();
 
         ListView lvRoutes = findViewById(R.id.lvRoutes);
@@ -89,8 +104,18 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
             if (!alarmManager.canScheduleExactAlarms()) {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                exactAlarmPermissionLauncher.launch(intent);
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Exact Alarm Permission Required")
+                    .setMessage("This app needs exact alarm permission to schedule route notifications at specific times. Please grant this permission in the next screen.")
+                    .setPositiveButton("Grant Permission", (dialog, which) -> {
+                        Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                        exactAlarmPermissionLauncher.launch(intent);
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Toast.makeText(this, "Route notifications may not be precise without exact alarm permission", Toast.LENGTH_LONG).show();
+                    })
+                    .create()
+                    .show();
             }
         }
     }
@@ -98,7 +123,56 @@ public class MainActivity extends AppCompatActivity {
     private void checkAndRequestNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, REQUEST_CODE_POST_NOTIFICATIONS);
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.POST_NOTIFICATIONS)) {
+                    // Show an explanation to the user
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Notification Permission Required")
+                        .setMessage("ETA Notifier needs notification permission to alert you about your routes.")
+                        .setPositiveButton("Grant Permission", (dialog, which) -> {
+                            ActivityCompat.requestPermissions(this,
+                                new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                                REQUEST_CODE_POST_NOTIFICATIONS);
+                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> {
+                            Toast.makeText(this, "Notifications won't work without permission", Toast.LENGTH_LONG).show();
+                        })
+                        .create()
+                        .show();
+                } else {
+                    ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                        REQUEST_CODE_POST_NOTIFICATIONS);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_POST_NOTIFICATIONS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Notification permission granted", Toast.LENGTH_SHORT).show();
+                // Re-enable any disabled routes that need notifications
+                for (Route route : routes) {
+                    if (route.isEnabled()) {
+                        AlarmManagerHelper.scheduleRouteNotification(this, route);
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Notifications won't work without permission", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Check permission again when returning to the app
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Toast.makeText(this, "Exact alarm permission is not granted. Route notifications may not be precise.", Toast.LENGTH_LONG).show();
             }
         }
     }
