@@ -30,7 +30,7 @@ public class WorkManagerHelper {
         long delayInMillis = scheduledTime.getTimeInMillis() - now.getTimeInMillis();
 
         Data inputData = new Data.Builder()
-                .putString(RouteNotificationWorker.KEY_ROUTE_ID, route.getId())
+                .putString(RouteNotificationWorker.EXTRA_ROUTE_ID, route.getId())
                 .build();
 
         OneTimeWorkRequest notificationWork = new OneTimeWorkRequest.Builder(RouteNotificationWorker.class)

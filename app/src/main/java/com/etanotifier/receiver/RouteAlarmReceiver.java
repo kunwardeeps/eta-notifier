@@ -7,10 +7,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
+import androidx.work.Data;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 import com.etanotifier.R;
 import com.etanotifier.model.Route;
 import com.etanotifier.route.RouteManager;
-import com.etanotifier.util.AlarmManagerHelper;
+import com.etanotifier.worker.RouteNotificationWorker;
 
 public class RouteAlarmReceiver extends BroadcastReceiver {
     private static final String CHANNEL_ID = "route_notifications";
@@ -23,13 +26,19 @@ public class RouteAlarmReceiver extends BroadcastReceiver {
         if (routeId != null) {
             Route route = RouteManager.getRouteById(context, routeId);
             if (route != null && route.isEnabled()) {
-                // Show the current notification
                 showNotification(context, "Time to check your route to " + route.getEndLocation());
 
-                // Schedule the next notification if it has days of week set
+                // Schedule the next notification using WorkManager
                 if (route.getSchedule() != null && route.getSchedule().getDaysOfWeek() != null
                     && !route.getSchedule().getDaysOfWeek().isEmpty()) {
-                    AlarmManagerHelper.scheduleRouteNotification(context, route);
+                    Data inputData = new Data.Builder()
+                        .putString(RouteNotificationWorker.EXTRA_ROUTE_ID, routeId)
+                        .build();
+                    OneTimeWorkRequest workRequest = new OneTimeWorkRequest.Builder(RouteNotificationWorker.class)
+                        .setInputData(inputData)
+                        // TODO: Set delay based on route schedule
+                        .build();
+                    WorkManager.getInstance(context).enqueue(workRequest);
                 }
             }
         }
@@ -49,7 +58,7 @@ public class RouteAlarmReceiver extends BroadcastReceiver {
         }
     }
 
-    private void showNotification(Context context, String message) {
+    public static void showNotification(Context context, String message) {
         createNotificationChannel(context);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)

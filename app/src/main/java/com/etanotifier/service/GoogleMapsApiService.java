@@ -21,26 +21,6 @@ public class GoogleMapsApiService {
         this.apiKey = apiKey;
     }
 
-    public JSONObject getRouteInfo(String origin, String destination) {
-        try {
-            String urlString = API_URL + "?origin=" + origin + "&destination=" + destination + "&key=" + apiKey;
-            URL url = new URL(urlString);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String inputLine;
-            StringBuilder response = new StringBuilder();
-            while ((inputLine = in.readLine()) != null) {
-                response.append(inputLine);
-            }
-            in.close();
-            return new JSONObject(response.toString());
-        } catch (Exception e) {
-            Log.e(TAG, "Error fetching route info", e);
-            return null;
-        }
-    }
-
     /**
      * Calls the Google Routes API Distance Matrix endpoint with the given JSON body and returns the response as a JSONArray.
      * @param requestBody The JSON request body as a String.

@@ -1,5 +1,6 @@
 package com.etanotifier;
 
+import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -25,9 +26,22 @@ import com.etanotifier.util.WorkManagerHelper;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import android.widget.AutoCompleteTextView;
+
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Calendar;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.Place.Field;
+import com.google.android.libraries.places.api.net.FetchPlaceRequest;
+import com.google.android.libraries.places.api.net.FetchPlaceResponse;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.maps.model.LatLng;
 
 public class MainActivity extends AppCompatActivity {
     private List<Route> routes = new ArrayList<>();
@@ -56,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
                 RouteManager.deleteRoute(MainActivity.this, route.getId());
                 routes.remove(position);
                 adapter.notifyDataSetChanged();
+                WorkManagerHelper.cancelRouteNotification(MainActivity.this, route); // Cancel schedule in WorkManager
                 Toast.makeText(MainActivity.this, "Route deleted", Toast.LENGTH_SHORT).show();
             }
             @Override
@@ -151,8 +166,8 @@ public class MainActivity extends AppCompatActivity {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
         AutoCompleteTextView etStart = new AutoCompleteTextView(this); etStart.setHint("Start location");
         AutoCompleteTextView etEnd = new AutoCompleteTextView(this); etEnd.setHint("End location");
-        java.util.Map<String, String> startSuggestionPlaceIdMap = new java.util.HashMap<>();
-        java.util.Map<String, String> endSuggestionPlaceIdMap = new java.util.HashMap<>();
+        Map<String, String> startSuggestionPlaceIdMap = new HashMap<>();
+        Map<String, String> endSuggestionPlaceIdMap = new HashMap<>();
         PlacesHelper.setupAutocomplete(this, placesClient, sessionToken, etStart, startSuggestionPlaceIdMap);
         PlacesHelper.setupAutocomplete(this, placesClient, sessionToken, etEnd, endSuggestionPlaceIdMap);
 
@@ -172,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
         final int[] minute = {0};
         btnTime.setOnClickListener(v -> new TimePickerDialog(this, (TimePicker view, int h, int m) -> {
             hour[0] = h; minute[0] = m;
-            btnTime.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", h, m));
+            btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", h, m));
         }, hour[0], minute[0], true).show());
 
         Button btnTest = new Button(this); btnTest.setText("Test");
@@ -199,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
                 return;
             }
-            java.util.Set<Integer> selectedDays = new java.util.HashSet<>();
+            Set<Integer> selectedDays = new HashSet<>();
             for (int i = 0; i < 7; i++) {
                 if (dayCheckBoxes[i].isChecked()) {
                     selectedDays.add(dayValues[i]);
@@ -212,19 +227,19 @@ public class MainActivity extends AppCompatActivity {
             WorkManagerHelper.scheduleRouteNotification(this, route);
         });
         builder.setNegativeButton("Cancel", null);
-        android.app.AlertDialog dialog = builder.create();
+        AlertDialog dialog = builder.create();
         dialog.show();
         btnTest.setOnClickListener(v -> testRouteAndNotify(etStart.getText().toString(), etEnd.getText().toString(), startSuggestionPlaceIdMap.get(etStart.getText().toString()), endSuggestionPlaceIdMap.get(etEnd.getText().toString())));
     }
 
     private void showEditRouteDialog(Route route, int position) {
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
         AutoCompleteTextView etStart = new AutoCompleteTextView(this); etStart.setHint("Start location");
         AutoCompleteTextView etEnd = new AutoCompleteTextView(this); etEnd.setHint("End location");
         etStart.setText(route.getStartLocation());
         etEnd.setText(route.getEndLocation());
-        java.util.Map<String, String> startSuggestionPlaceIdMap = new java.util.HashMap<>();
-        java.util.Map<String, String> endSuggestionPlaceIdMap = new java.util.HashMap<>();
+        Map<String, String> startSuggestionPlaceIdMap = new HashMap<>();
+        Map<String, String> endSuggestionPlaceIdMap = new HashMap<>();
         PlacesHelper.setupAutocomplete(this, placesClient, sessionToken, etStart, startSuggestionPlaceIdMap);
         PlacesHelper.setupAutocomplete(this, placesClient, sessionToken, etEnd, endSuggestionPlaceIdMap);
 
@@ -233,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
         String[] dayNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
         int[] dayValues = {Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY};
         android.widget.CheckBox[] dayCheckBoxes = new android.widget.CheckBox[7];
-        java.util.Set<Integer> selectedDays = route.getSchedule() != null ? route.getSchedule().getDaysOfWeek() : new java.util.HashSet<>();
+        Set<Integer> selectedDays = route.getSchedule() != null ? route.getSchedule().getDaysOfWeek() : new HashSet<>();
         for (int i = 0; i < 7; i++) {
             dayCheckBoxes[i] = new android.widget.CheckBox(this);
             dayCheckBoxes[i].setText(dayNames[i]);
@@ -246,10 +261,10 @@ public class MainActivity extends AppCompatActivity {
         Button btnTime = new Button(this); btnTime.setText(getString(R.string.pick_time));
         final int[] hour = {route.getSchedule() != null ? route.getSchedule().getHour() : 8};
         final int[] minute = {route.getSchedule() != null ? route.getSchedule().getMinute() : 0};
-        btnTime.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", hour[0], minute[0]));
+        btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", hour[0], minute[0]));
         btnTime.setOnClickListener(v -> new TimePickerDialog(this, (TimePicker view, int h, int m) -> {
             hour[0] = h; minute[0] = m;
-            btnTime.setText(String.format(java.util.Locale.getDefault(), "%02d:%02d", h, m));
+            btnTime.setText(String.format(Locale.getDefault(), "%02d:%02d", h, m));
         }, hour[0], minute[0], true).show());
 
         Button btnTest = new Button(this); btnTest.setText("Test");
@@ -276,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
                 return;
             }
-            java.util.Set<Integer> newSelectedDays = new java.util.HashSet<>();
+            Set<Integer> newSelectedDays = new HashSet<>();
             for (int i = 0; i < 7; i++) {
                 if (dayCheckBoxes[i].isChecked()) {
                     newSelectedDays.add(dayValues[i]);
@@ -291,6 +306,8 @@ public class MainActivity extends AppCompatActivity {
             RouteManager.saveRoute(this, route);
             routes.set(position, route);
             adapter.notifyDataSetChanged();
+            WorkManagerHelper.cancelRouteNotification(this, route); // Cancel previous schedule
+            WorkManagerHelper.scheduleRouteNotification(this, route); // Schedule new one
             Toast.makeText(this, "Route updated", Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton("Cancel", null);
@@ -313,23 +330,23 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
             return;
         }
-        java.util.List<com.google.android.libraries.places.api.model.Place.Field> placeFields = java.util.Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.LOCATION);
-        com.google.android.gms.tasks.Task<com.google.android.libraries.places.api.net.FetchPlaceResponse> startTask = placesClient.fetchPlace(
-                com.google.android.libraries.places.api.net.FetchPlaceRequest.newInstance(startPlaceId, placeFields)
+        List<Field> placeFields = Arrays.asList(Field.LOCATION);
+        Task<FetchPlaceResponse> startTask = placesClient.fetchPlace(
+                FetchPlaceRequest.newInstance(startPlaceId, placeFields)
         );
-        com.google.android.gms.tasks.Task<com.google.android.libraries.places.api.net.FetchPlaceResponse> endTask = placesClient.fetchPlace(
-                com.google.android.libraries.places.api.net.FetchPlaceRequest.newInstance(endPlaceId, placeFields)
+        Task<FetchPlaceResponse> endTask = placesClient.fetchPlace(
+                FetchPlaceRequest.newInstance(endPlaceId, placeFields)
         );
         startTask.addOnSuccessListener(startResponse -> {
-            com.google.android.libraries.places.api.model.Place startPlace = startResponse.getPlace();
-            com.google.android.gms.maps.model.LatLng startLatLng = startPlace.getLocation();
+            Place startPlace = startResponse.getPlace();
+            LatLng startLatLng = startPlace.getLocation();
             if (startLatLng == null) {
                 Toast.makeText(this, "Could not resolve coordinates for start address.", Toast.LENGTH_LONG).show();
                 return;
             }
             endTask.addOnSuccessListener(endResponse -> {
-                com.google.android.libraries.places.api.model.Place endPlace = endResponse.getPlace();
-                com.google.android.gms.maps.model.LatLng endLatLng = endPlace.getLocation();
+                Place endPlace = endResponse.getPlace();
+                LatLng endLatLng = endPlace.getLocation();
                 if (endLatLng == null) {
                     Toast.makeText(this, "Could not resolve coordinates for end address.", Toast.LENGTH_LONG).show();
                     return;
