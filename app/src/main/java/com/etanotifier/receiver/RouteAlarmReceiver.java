@@ -44,7 +44,7 @@ public class RouteAlarmReceiver extends BroadcastReceiver {
         }
     }
 
-    private void createNotificationChannel(Context context) {
+    private static void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,

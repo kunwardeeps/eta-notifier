@@ -4,9 +4,12 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
+import com.etanotifier.BuildConfig;
 import com.etanotifier.model.Route;
 import com.etanotifier.route.RouteManager;
 import com.etanotifier.receiver.RouteAlarmReceiver;
+import com.etanotifier.util.PlacesRouteUtils;
 
 public class RouteNotificationWorker extends Worker {
     public static final String EXTRA_ROUTE_ID = "route_id";
@@ -22,12 +25,15 @@ public class RouteNotificationWorker extends Worker {
         if (routeId != null) {
             Route route = RouteManager.getRouteById(getApplicationContext(), routeId);
             if (route != null && route.isEnabled()) {
-                // Directly call notification logic
-                RouteAlarmReceiver.showNotification(getApplicationContext(), "Time to check your route to " + route.getEndLocation());
-                // Optionally, schedule next notification here using WorkManager
+                PlacesRouteUtils.fetchRouteEtaAndDistanceWithPlaceIds(
+                    getApplicationContext(),
+                    route.getStartPlaceId(),
+                    route.getEndPlaceId(),
+                    BuildConfig.GOOGLE_MAPS_API_KEY,
+                    message -> RouteAlarmReceiver.showNotification(getApplicationContext(), message)
+                );
             }
         }
         return Result.success();
     }
 }
-

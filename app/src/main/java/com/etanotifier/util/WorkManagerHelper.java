@@ -9,6 +9,8 @@ import com.etanotifier.model.Route;
 import com.etanotifier.worker.RouteNotificationWorker;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
 
 public class WorkManagerHelper {
     public static void scheduleRouteNotification(Context context, Route route) {
@@ -33,9 +35,14 @@ public class WorkManagerHelper {
                 .putString(RouteNotificationWorker.EXTRA_ROUTE_ID, route.getId())
                 .build();
 
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+
         OneTimeWorkRequest notificationWork = new OneTimeWorkRequest.Builder(RouteNotificationWorker.class)
                 .setInitialDelay(delayInMillis, TimeUnit.MILLISECONDS)
                 .setInputData(inputData)
+                .setConstraints(constraints)
                 .addTag("route_notification_" + route.getId())
                 .build();
 

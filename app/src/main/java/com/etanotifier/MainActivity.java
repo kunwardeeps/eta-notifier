@@ -23,6 +23,7 @@ import com.etanotifier.service.PlacesHelper;
 import com.etanotifier.route.RouteManager;
 import com.etanotifier.route.RouteUtils;
 import com.etanotifier.util.WorkManagerHelper;
+import com.etanotifier.util.PlacesRouteUtils;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import android.widget.AutoCompleteTextView;
@@ -156,10 +157,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Check permission again when returning to the app
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Toast.makeText(this, "Ensure notifications are enabled for precise alerts.", Toast.LENGTH_LONG).show();
-        }
     }
 
     private void showAddRouteDialog() {
@@ -229,7 +226,27 @@ public class MainActivity extends AppCompatActivity {
         builder.setNegativeButton("Cancel", null);
         AlertDialog dialog = builder.create();
         dialog.show();
-        btnTest.setOnClickListener(v -> testRouteAndNotify(etStart.getText().toString(), etEnd.getText().toString(), startSuggestionPlaceIdMap.get(etStart.getText().toString()), endSuggestionPlaceIdMap.get(etEnd.getText().toString())));
+        btnTest.setOnClickListener(v -> {
+            String start = etStart.getText().toString();
+            String end = etEnd.getText().toString();
+            String startPlaceId = startSuggestionPlaceIdMap.get(start);
+            String endPlaceId = endSuggestionPlaceIdMap.get(end);
+            if (start.isEmpty() || end.isEmpty()) {
+                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (startPlaceId == null || endPlaceId == null) {
+                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            PlacesRouteUtils.fetchRouteEtaAndDistanceWithPlaceIds(
+                this,
+                startPlaceId,
+                endPlaceId,
+                BuildConfig.GOOGLE_MAPS_API_KEY,
+                message -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            );
+        });
     }
 
     private void showEditRouteDialog(Route route, int position) {
@@ -313,12 +330,27 @@ public class MainActivity extends AppCompatActivity {
         builder.setNegativeButton("Cancel", null);
         android.app.AlertDialog dialog = builder.create();
         dialog.show();
-        btnTest.setOnClickListener(v -> testRouteAndNotify(
-            etStart.getText().toString(),
-            etEnd.getText().toString(),
-            startSuggestionPlaceIdMap.containsKey(etStart.getText().toString()) ? startSuggestionPlaceIdMap.get(etStart.getText().toString()) : route.getStartPlaceId(),
-            endSuggestionPlaceIdMap.containsKey(etEnd.getText().toString()) ? endSuggestionPlaceIdMap.get(etEnd.getText().toString()) : route.getEndPlaceId()
-        ));
+        btnTest.setOnClickListener(v -> {
+            String start = etStart.getText().toString();
+            String end = etEnd.getText().toString();
+            String startPlaceId = startSuggestionPlaceIdMap.containsKey(etStart.getText().toString()) ? startSuggestionPlaceIdMap.get(etStart.getText().toString()) : route.getStartPlaceId();
+            String endPlaceId = endSuggestionPlaceIdMap.containsKey(etEnd.getText().toString()) ? endSuggestionPlaceIdMap.get(etEnd.getText().toString()) : route.getEndPlaceId();
+            if (start.isEmpty() || end.isEmpty()) {
+                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (startPlaceId == null || endPlaceId == null) {
+                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            PlacesRouteUtils.fetchRouteEtaAndDistanceWithPlaceIds(
+                this,
+                startPlaceId,
+                endPlaceId,
+                BuildConfig.GOOGLE_MAPS_API_KEY,
+                message -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            );
+        });
     }
 
     private void testRouteAndNotify(String start, String end, String startPlaceId, String endPlaceId) {

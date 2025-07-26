@@ -29,29 +29,29 @@
 
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switchEnable"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:text=""
+                android:layout_width="54dp"
+                android:layout_height="53dp"
+                android:layout_marginBottom="4dp"
                 android:showText="false"
-                android:layout_marginBottom="4dp" />
+                android:text="" />
 
             <ImageButton
                 android:id="@+id/btnEdit"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="66dp"
+                android:layout_height="47dp"
+                android:layout_marginBottom="4dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_edit"
                 android:contentDescription="@string/edit"
-                android:tint="#666666"
-                android:layout_marginBottom="4dp" />
+                android:src="@drawable/ic_edit"
+                android:tint="#666666" />
 
             <ImageButton
                 android:id="@+id/btnDelete"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="match_parent"
+                android:layout_height="39dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_delete"
                 android:contentDescription="@string/delete"
+                android:src="@drawable/ic_delete"
                 android:tint="#D32F2F" />
         </LinearLayout>
     </LinearLayout>
