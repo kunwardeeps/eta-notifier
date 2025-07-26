@@ -1,7 +1,6 @@
 package com.etanotifier;
 
 import android.app.TimePickerDialog;
-import android.app.AlarmManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -22,12 +21,10 @@ import com.etanotifier.model.Schedule;
 import com.etanotifier.service.PlacesHelper;
 import com.etanotifier.route.RouteManager;
 import com.etanotifier.route.RouteUtils;
-import com.etanotifier.util.AlarmManagerHelper;
+import com.etanotifier.util.WorkManagerHelper;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
-
 import android.widget.AutoCompleteTextView;
-
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -38,33 +35,11 @@ public class MainActivity extends AppCompatActivity {
     private PlacesClient placesClient;
     private AutocompleteSessionToken sessionToken;
     private static final int REQUEST_CODE_POST_NOTIFICATIONS = 1001;
-    private ActivityResultLauncher<Intent> exactAlarmPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Register the launcher during onCreate
-        exactAlarmPermissionLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-                    Toast.makeText(this, "Exact alarm permission granted", Toast.LENGTH_SHORT).show();
-                    // Reschedule all enabled routes
-                    for (Route route : routes) {
-                        if (route.isEnabled()) {
-                            AlarmManagerHelper.scheduleRouteNotification(this, route);
-                        }
-                    }
-                } else {
-                    Toast.makeText(this, "Exact alarm permission denied. Route notifications may not be precise.", Toast.LENGTH_LONG).show();
-                }
-            }
-        );
-
-        checkAndRequestExactAlarmPermission();
 
         ListView lvRoutes = findViewById(R.id.lvRoutes);
         Button btnAddRoute = findViewById(R.id.btnAddRoute);
@@ -88,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
                 route.setEnabled(enabled);
                 RouteManager.saveRoute(MainActivity.this, route);
                 if (enabled) {
-                    AlarmManagerHelper.scheduleRouteNotification(MainActivity.this, route);
+                    WorkManagerHelper.scheduleRouteNotification(MainActivity.this, route);
                 }
                 Toast.makeText(MainActivity.this, enabled ? "Route enabled" : "Route disabled", Toast.LENGTH_SHORT).show();
             }
@@ -98,26 +73,24 @@ public class MainActivity extends AppCompatActivity {
         sessionToken = PlacesHelper.getSessionToken();
         checkAndRequestNotificationPermission();
         btnAddRoute.setOnClickListener(v -> showAddRouteDialog());
-    }
 
-    private void checkAndRequestExactAlarmPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-            if (!alarmManager.canScheduleExactAlarms()) {
-                new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Exact Alarm Permission Required")
-                    .setMessage("This app needs exact alarm permission to schedule route notifications at specific times. Please grant this permission in the next screen.")
-                    .setPositiveButton("Grant Permission", (dialog, which) -> {
-                        Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                        exactAlarmPermissionLauncher.launch(intent);
-                    })
-                    .setNegativeButton("Cancel", (dialog, which) -> {
-                        Toast.makeText(this, "Route notifications may not be precise without exact alarm permission", Toast.LENGTH_LONG).show();
-                    })
-                    .create()
-                    .show();
-            }
-        }
+        adapter.setOnItemScheduleClickListener((route, position) -> {
+            Calendar currentTime = Calendar.getInstance();
+            new TimePickerDialog(this,
+                (view, hourOfDay, minute) -> {
+                    Schedule schedule = new Schedule(hourOfDay, minute, 1440,
+                        route.getSchedule() != null ? route.getSchedule().getDaysOfWeek() : new java.util.HashSet<>());
+                    route.setSchedule(schedule);
+                    adapter.notifyDataSetChanged();
+                    RouteManager.saveRoute(this, route);
+                    WorkManagerHelper.scheduleRouteNotification(this, route);
+                    Toast.makeText(this, "Route schedule updated", Toast.LENGTH_SHORT).show();
+                },
+                currentTime.get(Calendar.HOUR_OF_DAY),
+                currentTime.get(Calendar.MINUTE),
+                true
+            ).show();
+        });
     }
 
     private void checkAndRequestNotificationPermission() {
@@ -156,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
                 // Re-enable any disabled routes that need notifications
                 for (Route route : routes) {
                     if (route.isEnabled()) {
-                        AlarmManagerHelper.scheduleRouteNotification(this, route);
+                        WorkManagerHelper.scheduleRouteNotification(this, route);
                     }
                 }
             } else {
@@ -170,10 +143,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // Check permission again when returning to the app
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-            if (!alarmManager.canScheduleExactAlarms()) {
-                Toast.makeText(this, "Exact alarm permission is not granted. Route notifications may not be precise.", Toast.LENGTH_LONG).show();
-            }
+            Toast.makeText(this, "Ensure notifications are enabled for precise alerts.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -239,7 +209,7 @@ public class MainActivity extends AppCompatActivity {
             Route route = new Route(String.valueOf(System.currentTimeMillis()), start, end, startPlaceId, endPlaceId, schedule);
             routes.add(route);
             adapter.notifyDataSetChanged();
-            AlarmManagerHelper.scheduleRouteNotification(this, route);
+            WorkManagerHelper.scheduleRouteNotification(this, route);
         });
         builder.setNegativeButton("Cancel", null);
         android.app.AlertDialog dialog = builder.create();

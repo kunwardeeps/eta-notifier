@@ -23,10 +23,19 @@ public class RouteAdapter extends BaseAdapter {
         void onToggle(Route route, int position, boolean enabled);
     }
 
+    public interface OnItemScheduleClickListener {
+        void onScheduleClick(Route route, int position);
+    }
+
     private RouteActionListener actionListener;
+    private OnItemScheduleClickListener scheduleClickListener;
 
     public void setRouteActionListener(RouteActionListener listener) {
         this.actionListener = listener;
+    }
+
+    public void setOnItemScheduleClickListener(OnItemScheduleClickListener listener) {
+        this.scheduleClickListener = listener;
     }
 
     public RouteAdapter(Context context, List<Route> routes) {
@@ -78,6 +87,12 @@ public class RouteAdapter extends BaseAdapter {
         int hour12 = hour % 12 == 0 ? 12 : hour % 12;
         String scheduleText = String.format("%s%02d:%02d %s", daysBuilder.toString(), hour12, minute, ampm);
         tvRouteSchedule.setText(scheduleText.trim());
+
+        tvRouteSchedule.setOnClickListener(v -> {
+            if (scheduleClickListener != null) {
+                scheduleClickListener.onScheduleClick(route, position);
+            }
+        });
 
         btnEdit.setOnClickListener(v -> {
             if (actionListener != null) actionListener.onEdit(route, position);

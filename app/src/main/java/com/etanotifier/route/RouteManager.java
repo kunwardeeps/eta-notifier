@@ -14,4 +14,13 @@ public class RouteManager {
     public static void deleteRoute(Context context, String routeId) {
         RouteStorage.deleteRoute(context, routeId);
     }
+    public static Route getRouteById(Context context, String routeId) {
+        List<Route> routes = getAllRoutes(context);
+        for (Route route : routes) {
+            if (route.getId().equals(routeId)) {
+                return route;
+            }
+        }
+        return null;
+    }
 }
