@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -43,7 +44,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/edit"
                 android:src="@drawable/ic_edit"
-                android:tint="#666666" />
+                app:tint="#666666" />
 
             <ImageButton
                 android:id="@+id/btnDelete"
@@ -52,7 +53,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/delete"
                 android:src="@drawable/ic_delete"
-                android:tint="#D32F2F" />
+                app:tint="#D32F2F" />
         </LinearLayout>
     </LinearLayout>
 
@@ -67,4 +68,3 @@
         android:paddingTop="4dp" />
 
 </LinearLayout>
-

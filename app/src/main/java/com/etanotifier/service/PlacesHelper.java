@@ -1,6 +1,7 @@
 package com.etanotifier.service;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
@@ -59,7 +60,7 @@ public class PlacesHelper {
                             adapter.notifyDataSetChanged();
                         })
                         .addOnFailureListener(exception -> {
-                            Toast.makeText(context, "Autocomplete failed: " + exception.getMessage(), Toast.LENGTH_LONG).show();
+                            Log.e("PlacesHelper", "Failed to get autocomplete predictions: " + exception.getMessage(), exception);
                         });
             }
             @Override
@@ -67,4 +68,3 @@ public class PlacesHelper {
         });
     }
 }
-

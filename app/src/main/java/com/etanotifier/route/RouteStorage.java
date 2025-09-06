@@ -2,6 +2,7 @@ package com.etanotifier.route;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 import com.etanotifier.model.Route;
 import com.etanotifier.model.Schedule;
 import org.json.JSONObject;
@@ -13,8 +14,16 @@ public class RouteStorage {
     public static void saveRoute(Context context, Route route) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(route.getId(), routeToJson(route));
-        editor.apply();
+        String json = routeToJson(route);
+        if (json == null) {
+            Log.e("RouteStorage", "Failed to convert route to JSON for route: " + route.getId());
+            return;
+        }
+        editor.putString(route.getId(), json);
+        boolean success = editor.commit();
+        if (!success) {
+            Log.e("RouteStorage", "Failed to save route to SharedPreferences for route: " + route.getId());
+        }
     }
 
     public static Route getRoute(Context context, String routeId) {
@@ -49,6 +58,7 @@ public class RouteStorage {
             obj.put("enabled", route.isEnabled());
             return obj.toString();
         } catch (JSONException e) {
+            Log.e("RouteStorage", "JSONException in routeToJson: " + e.getMessage(), e);
             return null;
         }
     }
@@ -79,7 +89,8 @@ public class RouteStorage {
             }
             boolean enabled = obj.has("enabled") ? obj.getBoolean("enabled") : true;
             return new Route(id, startLocation, endLocation, startPlaceId, endPlaceId, schedule, enabled);
-        } catch (JSONException e) {
+        } catch (Exception e) {
+            Log.e("RouteStorage", "Exception in jsonToRoute: " + e.getMessage(), e);
             return null;
         }
     }

@@ -1,12 +1,13 @@
 package com.etanotifier.route;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.TextView;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import androidx.appcompat.widget.SwitchCompat;
 import com.etanotifier.R;
 import com.etanotifier.model.Route;
@@ -62,7 +63,16 @@ public class RouteAdapter extends BaseAdapter {
         ImageButton btnEdit = convertView.findViewById(R.id.btnEdit);
         ImageButton btnDelete = convertView.findViewById(R.id.btnDelete);
         SwitchCompat switchEnable = convertView.findViewById(R.id.switchEnable);
-        Route route = routes.get(position);
+        Route route = null;
+        try {
+            route = routes.get(position);
+        } catch (Exception e) {
+            Log.e("RouteAdapter", "Failed to get route at position " + position + ": " + e.getMessage(), e);
+        }
+        if (route == null) {
+            Log.e("RouteAdapter", "Route is null at position " + position);
+            return convertView;
+        }
         tvRouteTitle.setText(context.getString(R.string.route_title_format, route.getStartLocation(), route.getEndLocation()));
 
         // Format schedule with days and AM/PM

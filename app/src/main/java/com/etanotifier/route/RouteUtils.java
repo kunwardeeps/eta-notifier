@@ -3,6 +3,7 @@ package com.etanotifier.route;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import com.etanotifier.service.GoogleMapsApiService;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -31,26 +32,34 @@ public class RouteUtils {
                             try {
                                 int seconds = Integer.parseInt(duration.replace("s", ""));
                                 etaMinutes = (int) Math.round(seconds / 60.0);
-                            } catch (Exception ignore) {}
+                            } catch (Exception ignore) {
+                                Log.e("RouteUtils", "Failed to parse seconds from duration: " + duration);
+                            }
                         } else if (duration.endsWith("m")) {
                             try {
                                 etaMinutes = Integer.parseInt(duration.replace("m", ""));
-                            } catch (Exception ignore) {}
+                            } catch (Exception ignore) {
+                                Log.e("RouteUtils", "Failed to parse minutes from duration: " + duration);
+                            }
                         }
                     } else if (duration != null && duration.endsWith("s")) {
                         try {
                             int seconds = Integer.parseInt(duration.replace("s", ""));
                             etaMinutes = (int) Math.round(seconds / 60.0);
-                        } catch (Exception ignore) {}
+                        } catch (Exception ignore) {
+                            Log.e("RouteUtils", "Failed to parse seconds from duration: " + duration);
+                        }
                     }
                     double miles = distance >= 0 ? distance / 1609.34 : -1;
                     String milesStr = miles >= 0 ? String.format("%.2f", miles) : "?";
                     String etaStr = etaMinutes >= 0 ? etaMinutes + " min" : duration;
                     message = "ETA: " + etaStr + ", Distance: " + milesStr + " miles";
                 } else {
+                    Log.w("RouteUtils", "No route found or empty response from API.");
                     message = "No route found or empty response.";
                 }
             } catch (Exception ex) {
+                Log.e("RouteUtils", "API call failed: " + ex.getMessage(), ex);
                 message = "API call failed: " + ex.getMessage();
             }
             String finalMessage = message;

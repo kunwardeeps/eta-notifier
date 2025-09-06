@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TimePicker;
@@ -58,7 +59,16 @@ public class MainActivity extends AppCompatActivity {
 
         ListView lvRoutes = findViewById(R.id.lvRoutes);
         Button btnAddRoute = findViewById(R.id.btnAddRoute);
-        routes = RouteManager.getAllRoutes(this);
+        try {
+            routes = RouteManager.getAllRoutes(this);
+            if (routes == null) {
+                Log.e("MainActivity", "Failed to load routes: routes is null");
+                routes = new ArrayList<>();
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Exception while loading routes: " + e.getMessage(), e);
+            routes = new ArrayList<>();
+        }
         adapter = new RouteAdapter(this, routes);
         lvRoutes.setAdapter(adapter);
         adapter.setRouteActionListener(new RouteAdapter.RouteActionListener() {
