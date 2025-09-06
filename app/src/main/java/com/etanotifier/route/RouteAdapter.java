@@ -63,11 +63,12 @@ public class RouteAdapter extends BaseAdapter {
         ImageButton btnEdit = convertView.findViewById(R.id.btnEdit);
         ImageButton btnDelete = convertView.findViewById(R.id.btnDelete);
         SwitchCompat switchEnable = convertView.findViewById(R.id.switchEnable);
-        Route route = null;
+        final Route route;
         try {
             route = routes.get(position);
         } catch (Exception e) {
             Log.e("RouteAdapter", "Failed to get route at position " + position + ": " + e.getMessage(), e);
+            return convertView;
         }
         if (route == null) {
             Log.e("RouteAdapter", "Route is null at position " + position);
@@ -95,7 +96,7 @@ public class RouteAdapter extends BaseAdapter {
         int minute = schedule != null ? schedule.getMinute() : 0;
         String ampm = hour >= 12 ? "PM" : "AM";
         int hour12 = hour % 12 == 0 ? 12 : hour % 12;
-        String scheduleText = String.format("%s%02d:%02d %s", daysBuilder.toString(), hour12, minute, ampm);
+        String scheduleText = String.format(java.util.Locale.getDefault(), "%s%02d:%02d %s", daysBuilder, hour12, minute, ampm);
         tvRouteSchedule.setText(scheduleText.trim());
 
         tvRouteSchedule.setOnClickListener(v -> {
