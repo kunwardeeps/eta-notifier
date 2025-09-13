@@ -470,6 +470,11 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
         );
     }
     private void launchPurchaseFlow() {
+        if (billingClient == null || !billingClient.isReady()) {
+            Toast.makeText(this, "Billing service is not ready. Please try again later.", Toast.LENGTH_LONG).show();
+            Log.e("Billing", "BillingClient not ready");
+            return;
+        }
         List<QueryProductDetailsParams.Product> productList = Arrays.asList(
             QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(SKU_AD_FREE)
@@ -490,7 +495,14 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
                 BillingFlowParams flowParams = BillingFlowParams.newBuilder()
                     .setProductDetailsParamsList(productDetailsParamsList)
                     .build();
-                billingClient.launchBillingFlow(this, flowParams);
+                int responseCode = billingClient.launchBillingFlow(this, flowParams).getResponseCode();
+                if (responseCode != BillingClient.BillingResponseCode.OK) {
+                    Toast.makeText(this, "Unable to start purchase flow. Response code: " + responseCode, Toast.LENGTH_LONG).show();
+                    Log.e("Billing", "launchBillingFlow failed: " + responseCode);
+                }
+            } else {
+                Toast.makeText(this, "Ad-Free product not available. Please try again later.", Toast.LENGTH_LONG).show();
+                Log.e("Billing", "Product details not found or billing error: " + billingResult.getResponseCode());
             }
         });
     }
