@@ -2,21 +2,18 @@ package com.etanotifier;
 
 import android.app.AlertDialog;
 import android.app.TimePickerDialog;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import com.etanotifier.route.RouteAdapter;
 import com.etanotifier.model.Route;
 import com.etanotifier.model.Schedule;
@@ -28,7 +25,6 @@ import com.etanotifier.util.PlacesRouteUtils;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import android.widget.AutoCompleteTextView;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,14 +43,29 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
+import com.android.billingclient.api.BillingClient;
+import com.android.billingclient.api.BillingClientStateListener;
+import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.BillingFlowParams;
+import com.android.billingclient.api.ProductDetails;
+import com.android.billingclient.api.QueryPurchasesParams;
+import com.android.billingclient.api.QueryProductDetailsParams;
+import android.content.SharedPreferences;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements PurchasesUpdatedListener {
     private List<Route> routes = new ArrayList<>();
     private RouteAdapter adapter;
     private PlacesClient placesClient;
     private AutocompleteSessionToken sessionToken;
     private static final int REQUEST_CODE_POST_NOTIFICATIONS = 1001;
     private AdView mAdView;
+    private BillingClient billingClient;
+    private boolean isAdFree = false;
+    private static final String SKU_AD_FREE = "ad_free";
+    private SharedPreferences prefs;
+    private Button btnGoAdFree;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                 routes.remove(position);
                 adapter.notifyDataSetChanged();
                 WorkManagerHelper.cancelRouteNotification(MainActivity.this, route); // Cancel schedule in WorkManager
-                Toast.makeText(MainActivity.this, "Route deleted", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, getString(R.string.route_deleted), Toast.LENGTH_SHORT).show();
             }
             @Override
             public void onToggle(Route route, int position, boolean enabled) {
@@ -95,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 if (enabled) {
                     WorkManagerHelper.scheduleRouteNotification(MainActivity.this, route);
                 }
-                Toast.makeText(MainActivity.this, enabled ? "Route enabled" : "Route disabled", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, enabled ? getString(R.string.route_enabled) : getString(R.string.route_disabled), Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -123,10 +134,21 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Initialize AdMob
-        MobileAds.initialize(this, initializationStatus -> {});
+        btnGoAdFree = findViewById(R.id.btnGoAdFree);
+        btnGoAdFree.setVisibility(View.VISIBLE);
+        btnGoAdFree.setOnClickListener(v -> launchPurchaseFlow());
+        prefs = getSharedPreferences("iap_prefs", MODE_PRIVATE);
+        isAdFree = prefs.getBoolean("ad_free", false);
         mAdView = findViewById(R.id.adView);
-        AdRequest adRequest = new AdRequest.Builder().build();
-        mAdView.loadAd(adRequest);
+        if (isAdFree) {
+            mAdView.setVisibility(View.GONE);
+            btnGoAdFree.setVisibility(View.GONE);
+        } else {
+            MobileAds.initialize(this, initializationStatus -> {});
+            AdRequest adRequest = new AdRequest.Builder().build();
+            mAdView.loadAd(adRequest);
+        }
+        setupBillingClient();
     }
 
     private void checkAndRequestNotificationPermission() {
@@ -415,5 +437,78 @@ public class MainActivity extends AppCompatActivity {
                 );
             }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve end address: " + e.getMessage(), Toast.LENGTH_LONG).show());
         }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve start address: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    private void setupBillingClient() {
+        billingClient = BillingClient.newBuilder(this)
+            .setListener(this)
+            .enablePendingPurchases()
+            .build();
+        billingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(BillingResult billingResult) {
+                if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+                    queryPurchasesAsync();
+                }
+            }
+            @Override
+            public void onBillingServiceDisconnected() {}
+        });
+    }
+    private void queryPurchasesAsync() {
+        billingClient.queryPurchasesAsync(
+            QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build(),
+            (billingResult, purchasesList) -> {
+                if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && purchasesList != null) {
+                    for (Purchase purchase : purchasesList) {
+                        if (purchase.getProducts().contains(SKU_AD_FREE) && purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
+                            setAdFreePurchased();
+                        }
+                    }
+                }
+            }
+        );
+    }
+    private void launchPurchaseFlow() {
+        List<QueryProductDetailsParams.Product> productList = Arrays.asList(
+            QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(SKU_AD_FREE)
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+        );
+        QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
+            .setProductList(productList)
+            .build();
+        billingClient.queryProductDetailsAsync(params, (billingResult, productDetailsList) -> {
+            if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && productDetailsList != null && !productDetailsList.isEmpty()) {
+                ProductDetails productDetails = productDetailsList.get(0);
+                List<BillingFlowParams.ProductDetailsParams> productDetailsParamsList = Arrays.asList(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(productDetails)
+                        .build()
+                );
+                BillingFlowParams flowParams = BillingFlowParams.newBuilder()
+                    .setProductDetailsParamsList(productDetailsParamsList)
+                    .build();
+                billingClient.launchBillingFlow(this, flowParams);
+            }
+        });
+    }
+    @Override
+    public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases) {
+        if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && purchases != null) {
+            for (Purchase purchase : purchases) {
+                if (purchase.getProducts().contains(SKU_AD_FREE) && purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
+                    setAdFreePurchased();
+                }
+            }
+        }
+    }
+    private void setAdFreePurchased() {
+        isAdFree = true;
+        prefs.edit().putBoolean("ad_free", true).apply();
+        if (mAdView != null) mAdView.setVisibility(View.GONE);
+        if (btnGoAdFree != null) btnGoAdFree.setVisibility(View.GONE);
+        Toast.makeText(this, "Ad-Free unlocked!", Toast.LENGTH_LONG).show();
     }
 }
