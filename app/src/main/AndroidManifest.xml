@@ -12,6 +12,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ETANotifier">
 
+        <!-- AdMob App ID metadata -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" /> <!-- Replace with your real AdMob App ID for production -->
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

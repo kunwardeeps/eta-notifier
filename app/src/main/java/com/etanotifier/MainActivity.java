@@ -44,6 +44,9 @@ import com.google.android.libraries.places.api.net.FetchPlaceRequest;
 import com.google.android.libraries.places.api.net.FetchPlaceResponse;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
 
 public class MainActivity extends AppCompatActivity {
     private List<Route> routes = new ArrayList<>();
@@ -51,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
     private PlacesClient placesClient;
     private AutocompleteSessionToken sessionToken;
     private static final int REQUEST_CODE_POST_NOTIFICATIONS = 1001;
+    private AdView mAdView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,6 +121,12 @@ public class MainActivity extends AppCompatActivity {
                 true
             ).show();
         });
+
+        // Initialize AdMob
+        MobileAds.initialize(this, initializationStatus -> {});
+        mAdView = findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        mAdView.loadAd(adRequest);
     }
 
     private void checkAndRequestNotificationPermission() {

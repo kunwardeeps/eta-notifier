@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:ads="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -9,12 +10,21 @@
         android:id="@+id/btnAddRoute"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Add Route" />
+        android:text="@string/add_route" />
 
     <ListView
         android:id="@+id/lvRoutes"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
+
+    <com.google.android.gms.ads.AdView
+        android:id="@+id/adView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#EEEEEE"
+        ads:adSize="BANNER"
+        ads:adUnitId="ca-app-pub-3940256099942544/6300978111" /> <!-- Test Banner Ad Unit ID -->
 
 </LinearLayout>
