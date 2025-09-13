@@ -6,8 +6,7 @@
     <string name="enable">Enable</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
-    <string name="app_name">ETA Notifier</string>
+    <string name="app_name">RouteWatch</string>
     <string name="pick_time">Pick time</string>
     <string name="test">Test</string>
 </resources>
-

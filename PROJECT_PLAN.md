@@ -1,4 +1,4 @@
-# Project: ETA Notifier
+# Project: RouteWatch
 
 ## App Flow Overview
 

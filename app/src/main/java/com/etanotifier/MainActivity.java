@@ -126,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
                     // Show an explanation to the user
                     new androidx.appcompat.app.AlertDialog.Builder(this)
                         .setTitle("Notification Permission Required")
-                        .setMessage("ETA Notifier needs notification permission to alert you about your routes.")
+                        .setMessage("RouteWatch needs notification permission to alert you about your routes.")
                         .setPositiveButton("Grant Permission", (dialog, which) -> {
                             ActivityCompat.requestPermissions(this,
                                 new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
