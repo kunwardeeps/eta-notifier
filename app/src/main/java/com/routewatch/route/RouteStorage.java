@@ -7,6 +7,7 @@ import com.routewatch.model.Route;
 import com.routewatch.model.Schedule;
 import org.json.JSONObject;
 import org.json.JSONException;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 public class RouteStorage {
     private static final String PREFS_NAME = "routes_prefs";
@@ -17,12 +18,17 @@ public class RouteStorage {
         String json = routeToJson(route);
         if (json == null) {
             Log.e("RouteStorage", "Failed to convert route to JSON for route: " + route.getId());
+            FirebaseCrashlytics.getInstance().log("Failed to convert route to JSON for route: " + route.getId());
             return;
         }
+        Log.d("RouteStorage", "Saving route: id=" + route.getId() + ", json=" + json);
         editor.putString(route.getId(), json);
         boolean success = editor.commit();
         if (!success) {
             Log.e("RouteStorage", "Failed to save route to SharedPreferences for route: " + route.getId());
+            FirebaseCrashlytics.getInstance().log("Failed to save route to SharedPreferences for route: " + route.getId());
+        } else {
+            Log.d("RouteStorage", "Route saved successfully: id=" + route.getId());
         }
     }
 
@@ -59,6 +65,7 @@ public class RouteStorage {
             return obj.toString();
         } catch (JSONException e) {
             Log.e("RouteStorage", "JSONException in routeToJson: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return null;
         }
     }
@@ -91,6 +98,7 @@ public class RouteStorage {
             return new Route(id, startLocation, endLocation, startPlaceId, endPlaceId, schedule, enabled);
         } catch (Exception e) {
             Log.e("RouteStorage", "Exception in jsonToRoute: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return null;
         }
     }
@@ -98,13 +106,29 @@ public class RouteStorage {
     public static java.util.List<Route> getAllRoutes(Context context) {
         java.util.List<Route> routes = new java.util.ArrayList<>();
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        for (String key : prefs.getAll().keySet()) {
-            String json = prefs.getString(key, null);
-            if (json != null) {
-                Route route = jsonToRoute(json);
-                if (route != null) routes.add(route);
+        java.util.Map<String, ?> allPrefs = prefs.getAll();
+        Log.d("RouteStorage", "getAllRoutes: found keys=" + allPrefs.keySet());
+        for (String key : allPrefs.keySet()) {
+            Object value = allPrefs.get(key);
+            if (value instanceof String) {
+                String json = (String) value;
+                try {
+                    Route route = jsonToRoute(json);
+                    if (route != null) {
+                        routes.add(route);
+                        Log.d("RouteStorage", "Loaded route: id=" + route.getId());
+                    } else {
+                        Log.w("RouteStorage", "Failed to parse route for key=" + key);
+                    }
+                } catch (Exception e) {
+                    Log.e("RouteStorage", "Exception in getAllRoutes for key=" + key + ": " + e.getMessage(), e);
+                    FirebaseCrashlytics.getInstance().recordException(e);
+                }
+            } else {
+                Log.w("RouteStorage", "Skipping non-String entry in SharedPreferences: key=" + key + ", type=" + value.getClass().getSimpleName());
             }
         }
+        Log.d("RouteStorage", "getAllRoutes: loaded " + routes.size() + " routes");
         return routes;
     }
 

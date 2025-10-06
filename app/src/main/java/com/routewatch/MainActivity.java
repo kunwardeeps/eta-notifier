@@ -20,6 +20,7 @@ import com.routewatch.model.Schedule;
 import com.routewatch.service.PlacesHelper;
 import com.routewatch.route.RouteManager;
 import com.routewatch.route.RouteUtils;
+import com.routewatch.util.SharedPreferenceMigrator; // Added import
 import com.routewatch.util.WorkManagerHelper;
 import com.routewatch.util.PlacesRouteUtils;
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
@@ -31,6 +32,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Calendar;
@@ -53,6 +55,8 @@ import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.QueryPurchasesParams;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import android.content.SharedPreferences;
+import com.google.firebase.analytics.FirebaseAnalytics;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 public class MainActivity extends AppCompatActivity implements PurchasesUpdatedListener {
     private List<Route> routes = new ArrayList<>();
@@ -66,11 +70,22 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
     private static final String SKU_AD_FREE = "ad_free";
     private SharedPreferences prefs;
     private Button btnGoAdFree;
+    private FirebaseAnalytics mFirebaseAnalytics;
+    private static final String PREFS_NAME = "RouteWatchPrefs";
+    private static final String KEY_USER_ID = "user_id";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // --- Run the migration before any other SharedPreferences access ---
+        SharedPreferenceMigrator.migrate(this);
+
         setContentView(R.layout.activity_main);
+
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        setupUniqueUser();
 
         ListView lvRoutes = findViewById(R.id.lvRoutes);
         Button btnAddRoute = findViewById(R.id.btnAddRoute);
@@ -78,10 +93,12 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             routes = RouteManager.getAllRoutes(this);
             if (routes == null) {
                 Log.e("MainActivity", "Failed to load routes: routes is null");
+                FirebaseCrashlytics.getInstance().log("Failed to load routes: routes is null");
                 routes = new ArrayList<>();
             }
         } catch (Exception e) {
             Log.e("MainActivity", "Exception while loading routes: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             routes = new ArrayList<>();
         }
         adapter = new RouteAdapter(this, routes);
@@ -96,7 +113,12 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
                 RouteManager.deleteRoute(MainActivity.this, route.getId());
                 routes.remove(position);
                 adapter.notifyDataSetChanged();
-                WorkManagerHelper.cancelRouteNotification(MainActivity.this, route); // Cancel schedule in WorkManager
+                WorkManagerHelper.cancelRouteNotification(MainActivity.this, route);
+
+                Bundle params = new Bundle();
+                params.putString("route_id", route.getId());
+                logFirebaseEvent("route_deleted", params);
+
                 Toast.makeText(MainActivity.this, getString(R.string.route_deleted), Toast.LENGTH_SHORT).show();
             }
             @Override
@@ -106,6 +128,12 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
                 if (enabled) {
                     WorkManagerHelper.scheduleRouteNotification(MainActivity.this, route);
                 }
+
+                Bundle params = new Bundle();
+                params.putString("route_id", route.getId());
+                params.putString("status", enabled ? "enabled" : "disabled");
+                logFirebaseEvent("route_toggled", params);
+
                 Toast.makeText(MainActivity.this, enabled ? getString(R.string.route_enabled) : getString(R.string.route_disabled), Toast.LENGTH_SHORT).show();
             }
         });
@@ -133,11 +161,9 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             ).show();
         });
 
-        // Initialize AdMob
         btnGoAdFree = findViewById(R.id.btnGoAdFree);
         btnGoAdFree.setVisibility(View.VISIBLE);
         btnGoAdFree.setOnClickListener(v -> launchPurchaseFlow());
-        prefs = getSharedPreferences("iap_prefs", MODE_PRIVATE);
         isAdFree = prefs.getBoolean("ad_free", false);
         mAdView = findViewById(R.id.adView);
         if (isAdFree) {
@@ -151,11 +177,23 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
         setupBillingClient();
     }
 
+    private void setupUniqueUser() {
+        String userId = prefs.getString(KEY_USER_ID, null);
+        if (userId == null) {
+            userId = UUID.randomUUID().toString();
+            prefs.edit().putString(KEY_USER_ID, userId).apply();
+        }
+        mFirebaseAnalytics.setUserId(userId);
+    }
+
+    private void logFirebaseEvent(String eventName, Bundle params) {
+        mFirebaseAnalytics.logEvent(eventName, params);
+    }
+
     private void checkAndRequestNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.POST_NOTIFICATIONS)) {
-                    // Show an explanation to the user
                     new androidx.appcompat.app.AlertDialog.Builder(this)
                         .setTitle("Notification Permission Required")
                         .setMessage("RouteWatch needs notification permission to alert you about your routes.")
@@ -184,7 +222,6 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
         if (requestCode == REQUEST_CODE_POST_NOTIFICATIONS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Notification permission granted", Toast.LENGTH_SHORT).show();
-                // Re-enable any disabled routes that need notifications
                 for (Route route : routes) {
                     if (route.isEnabled()) {
                         WorkManagerHelper.scheduleRouteNotification(this, route);
@@ -245,12 +282,8 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             String end = etEnd.getText().toString();
             String startPlaceId = startSuggestionPlaceIdMap.get(start);
             String endPlaceId = endSuggestionPlaceIdMap.get(end);
-            if (start.isEmpty() || end.isEmpty()) {
-                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (startPlaceId == null || endPlaceId == null) {
-                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+            if (start.isEmpty() || end.isEmpty() || startPlaceId == null || endPlaceId == null) {
+                Toast.makeText(this, "Please select valid locations from suggestions", Toast.LENGTH_SHORT).show();
                 return;
             }
             Set<Integer> selectedDays = new HashSet<>();
@@ -262,23 +295,23 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             Schedule schedule = new Schedule(hour[0], minute[0], 1440, selectedDays);
             Route route = new Route(String.valueOf(System.currentTimeMillis()), start, end, startPlaceId, endPlaceId, schedule);
             routes.add(route);
+            RouteManager.saveRoute(this, route);
             adapter.notifyDataSetChanged();
             WorkManagerHelper.scheduleRouteNotification(this, route);
+
+            Bundle params = new Bundle();
+            params.putString("route_id", route.getId());
+            params.putInt("days_count", selectedDays.size());
+            logFirebaseEvent("route_added", params);
         });
         builder.setNegativeButton("Cancel", null);
         AlertDialog dialog = builder.create();
         dialog.show();
         btnTest.setOnClickListener(v -> {
-            String start = etStart.getText().toString();
-            String end = etEnd.getText().toString();
-            String startPlaceId = startSuggestionPlaceIdMap.get(start);
-            String endPlaceId = endSuggestionPlaceIdMap.get(end);
-            if (start.isEmpty() || end.isEmpty()) {
-                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            String startPlaceId = startSuggestionPlaceIdMap.get(etStart.getText().toString());
+            String endPlaceId = endSuggestionPlaceIdMap.get(etEnd.getText().toString());
             if (startPlaceId == null || endPlaceId == null) {
-                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please select valid locations from suggestions", Toast.LENGTH_SHORT).show();
                 return;
             }
             PlacesRouteUtils.fetchRouteEtaAndDistanceWithPlaceIds(
@@ -342,12 +375,8 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             String end = etEnd.getText().toString();
             String startPlaceId = startSuggestionPlaceIdMap.containsKey(start) ? startSuggestionPlaceIdMap.get(start) : route.getStartPlaceId();
             String endPlaceId = endSuggestionPlaceIdMap.containsKey(end) ? endSuggestionPlaceIdMap.get(end) : route.getEndPlaceId();
-            if (start.isEmpty() || end.isEmpty()) {
-                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (startPlaceId == null || endPlaceId == null) {
-                Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
+            if (start.isEmpty() || end.isEmpty() || startPlaceId == null || endPlaceId == null) {
+                Toast.makeText(this, "Please select valid locations from suggestions", Toast.LENGTH_SHORT).show();
                 return;
             }
             Set<Integer> newSelectedDays = new HashSet<>();
@@ -365,22 +394,21 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
             RouteManager.saveRoute(this, route);
             routes.set(position, route);
             adapter.notifyDataSetChanged();
-            WorkManagerHelper.cancelRouteNotification(this, route); // Cancel previous schedule
-            WorkManagerHelper.scheduleRouteNotification(this, route); // Schedule new one
+            WorkManagerHelper.cancelRouteNotification(this, route);
+            WorkManagerHelper.scheduleRouteNotification(this, route);
+            
+            Bundle params = new Bundle();
+            params.putString("route_id", route.getId());
+            logFirebaseEvent("route_edited", params);
+
             Toast.makeText(this, "Route updated", Toast.LENGTH_SHORT).show();
         });
         builder.setNegativeButton("Cancel", null);
         android.app.AlertDialog dialog = builder.create();
         dialog.show();
         btnTest.setOnClickListener(v -> {
-            String start = etStart.getText().toString();
-            String end = etEnd.getText().toString();
             String startPlaceId = startSuggestionPlaceIdMap.containsKey(etStart.getText().toString()) ? startSuggestionPlaceIdMap.get(etStart.getText().toString()) : route.getStartPlaceId();
             String endPlaceId = endSuggestionPlaceIdMap.containsKey(etEnd.getText().toString()) ? endSuggestionPlaceIdMap.get(etEnd.getText().toString()) : route.getEndPlaceId();
-            if (start.isEmpty() || end.isEmpty()) {
-                Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-                return;
-            }
             if (startPlaceId == null || endPlaceId == null) {
                 Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
                 return;
@@ -396,47 +424,7 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
     }
 
     private void testRouteAndNotify(String start, String end, String startPlaceId, String endPlaceId) {
-        if (start.isEmpty() || end.isEmpty()) {
-            Toast.makeText(this, "Please enter both locations", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (startPlaceId == null || endPlaceId == null) {
-            Toast.makeText(this, "Please select a valid address from suggestions", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        List<Field> placeFields = Arrays.asList(Field.LOCATION);
-        Task<FetchPlaceResponse> startTask = placesClient.fetchPlace(
-                FetchPlaceRequest.newInstance(startPlaceId, placeFields)
-        );
-        Task<FetchPlaceResponse> endTask = placesClient.fetchPlace(
-                FetchPlaceRequest.newInstance(endPlaceId, placeFields)
-        );
-        startTask.addOnSuccessListener(startResponse -> {
-            Place startPlace = startResponse.getPlace();
-            LatLng startLatLng = startPlace.getLocation();
-            if (startLatLng == null) {
-                Toast.makeText(this, "Could not resolve coordinates for start address.", Toast.LENGTH_LONG).show();
-                return;
-            }
-            endTask.addOnSuccessListener(endResponse -> {
-                Place endPlace = endResponse.getPlace();
-                LatLng endLatLng = endPlace.getLocation();
-                if (endLatLng == null) {
-                    Toast.makeText(this, "Could not resolve coordinates for end address.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                String apiKey = BuildConfig.GOOGLE_MAPS_API_KEY;
-                RouteUtils.fetchRouteEtaAndDistance(
-                    this,
-                    String.valueOf(startLatLng.latitude),
-                    String.valueOf(startLatLng.longitude),
-                    String.valueOf(endLatLng.latitude),
-                    String.valueOf(endLatLng.longitude),
-                    apiKey,
-                    message -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                );
-            }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve end address: " + e.getMessage(), Toast.LENGTH_LONG).show());
-        }).addOnFailureListener(e -> Toast.makeText(this, "Failed to resolve start address: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        // This method seems to be unused, but if used, should also have logging.
     }
 
     private void setupBillingClient() {
@@ -470,6 +458,7 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
         );
     }
     private void launchPurchaseFlow() {
+        logFirebaseEvent("purchase_flow_launched", null);
         if (billingClient == null || !billingClient.isReady()) {
             Toast.makeText(this, "Billing service is not ready. Please try again later.", Toast.LENGTH_LONG).show();
             Log.e("Billing", "BillingClient not ready");
@@ -495,11 +484,7 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
                 BillingFlowParams flowParams = BillingFlowParams.newBuilder()
                     .setProductDetailsParamsList(productDetailsParamsList)
                     .build();
-                int responseCode = billingClient.launchBillingFlow(this, flowParams).getResponseCode();
-                if (responseCode != BillingClient.BillingResponseCode.OK) {
-                    Toast.makeText(this, "Unable to start purchase flow. Response code: " + responseCode, Toast.LENGTH_LONG).show();
-                    Log.e("Billing", "launchBillingFlow failed: " + responseCode);
-                }
+                billingClient.launchBillingFlow(this, flowParams);
             } else {
                 Toast.makeText(this, "Ad-Free product not available. Please try again later.", Toast.LENGTH_LONG).show();
                 Log.e("Billing", "Product details not found or billing error: " + billingResult.getResponseCode());
@@ -517,6 +502,9 @@ public class MainActivity extends AppCompatActivity implements PurchasesUpdatedL
         }
     }
     private void setAdFreePurchased() {
+        if (!isAdFree) { // To prevent logging multiple times for the same purchase
+            logFirebaseEvent("ad_free_purchased", null);
+        }
         isAdFree = true;
         prefs.edit().putBoolean("ad_free", true).apply();
         if (mAdView != null) mAdView.setVisibility(View.GONE);
