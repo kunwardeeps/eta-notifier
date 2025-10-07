@@ -51,6 +51,7 @@ public class RouteNotificationWorker extends Worker {
                 message -> {
                     try {
                         RouteAlarmReceiver.showNotification(getApplicationContext(), message);
+                        WorkManagerHelper.scheduleRouteNotification(getApplicationContext(), route);
                     } catch (Exception e) {
                         Log.e(COMMON_TAG, "Failed to show notification: " + e.getMessage(), e);
                         Bundle params = new Bundle();
@@ -61,7 +62,6 @@ public class RouteNotificationWorker extends Worker {
                     }
                 }
             );
-            WorkManagerHelper.scheduleRouteNotification(getApplicationContext(), route);
             return Result.success();
         } catch (Exception e) {
             Log.e(COMMON_TAG, "Fatal error in doWork(): " + e.getMessage(), e);

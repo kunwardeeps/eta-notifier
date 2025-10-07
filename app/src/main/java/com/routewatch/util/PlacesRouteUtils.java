@@ -23,19 +23,19 @@ public class PlacesRouteUtils {
             RouteMessageCallback callback
     ) {
         PlacesClient placesClient = PlacesHelper.getPlacesClient(context, apiKey);
-        java.util.List<Field> placeFields = Arrays.asList(Field.LOCATION);
+        java.util.List<Field> placeFields = Arrays.asList(Field.LAT_LNG);
         FetchPlaceRequest startRequest = FetchPlaceRequest.newInstance(startPlaceId, placeFields);
         FetchPlaceRequest endRequest = FetchPlaceRequest.newInstance(endPlaceId, placeFields);
         placesClient.fetchPlace(startRequest).addOnSuccessListener(startResponse -> {
             Place startPlace = startResponse.getPlace();
-            com.google.android.gms.maps.model.LatLng startLatLng = startPlace.getLocation();
+            com.google.android.gms.maps.model.LatLng startLatLng = startPlace.getLatLng();
             if (startLatLng == null) {
                 callback.onMessage("Could not resolve coordinates for start address.");
                 return;
             }
             placesClient.fetchPlace(endRequest).addOnSuccessListener(endResponse -> {
                 Place endPlace = endResponse.getPlace();
-                com.google.android.gms.maps.model.LatLng endLatLng = endPlace.getLocation();
+                com.google.android.gms.maps.model.LatLng endLatLng = endPlace.getLatLng();
                 if (endLatLng == null) {
                     callback.onMessage("Could not resolve coordinates for end address.");
                     return;
