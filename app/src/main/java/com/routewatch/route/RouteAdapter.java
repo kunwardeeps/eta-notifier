@@ -9,6 +9,7 @@ import android.widget.BaseAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.appcompat.widget.SwitchCompat;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.R;
 import com.routewatch.model.Route;
 import com.routewatch.model.Schedule;
@@ -68,6 +69,7 @@ public class RouteAdapter extends BaseAdapter {
             route = routes.get(position);
         } catch (Exception e) {
             Log.e("RouteAdapter", "Failed to get route at position " + position + ": " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return convertView;
         }
         if (route == null) {

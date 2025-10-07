@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.util.Log;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import java.util.Map;
 
@@ -67,6 +68,7 @@ public class SharedPreferenceMigrator {
             newPrefs.edit().putBoolean(MIGRATION_KEY, true).apply();
         } catch (Exception e) {
             Log.e(TAG, "An error occurred during SharedPreferences migration.", e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
     }
 }

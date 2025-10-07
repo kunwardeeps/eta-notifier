@@ -1,7 +1,7 @@
 package com.routewatch.service;
 
 import android.util.Log;
-
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -53,6 +53,7 @@ public class GoogleMapsApiService {
             return new JSONArray(response.toString());
         } catch (Exception e) {
             Log.e(TAG, "Error calling computeRouteMatrix", e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return null;
         }
     }

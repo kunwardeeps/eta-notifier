@@ -2,6 +2,7 @@ package com.routewatch.route;
 
 import android.content.Context;
 import android.util.Log;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.model.Route;
 import java.util.List;
 
@@ -12,6 +13,7 @@ public class RouteManager {
             routes = RouteStorage.getAllRoutes(context);
         } catch (Exception e) {
             Log.e("RouteManager", "Failed to get all routes: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
         if (routes == null) {
             Log.e("RouteManager", "getAllRoutes returned null");
@@ -24,6 +26,7 @@ public class RouteManager {
             RouteStorage.saveRoute(context, route);
         } catch (Exception e) {
             Log.e("RouteManager", "Failed to save route: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
     }
     public static void deleteRoute(Context context, String routeId) {
@@ -31,6 +34,7 @@ public class RouteManager {
             RouteStorage.deleteRoute(context, routeId);
         } catch (Exception e) {
             Log.e("RouteManager", "Failed to delete route: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
     }
     public static Route getRouteById(Context context, String routeId) {

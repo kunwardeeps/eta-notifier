@@ -5,6 +5,7 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.model.Route;
 import com.routewatch.worker.RouteNotificationWorker;
 import java.util.Calendar;
@@ -59,6 +60,7 @@ public class WorkManagerHelper {
                     .enqueue();
         } catch (Exception e) {
             Log.e("WorkManagerHelper", "Failed to schedule route notification: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
     }
 
@@ -68,6 +70,7 @@ public class WorkManagerHelper {
                     .cancelUniqueWork("route_notification_" + route.getId());
         } catch (Exception e) {
             Log.e("WorkManagerHelper", "Failed to cancel route notification: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
     }
 }

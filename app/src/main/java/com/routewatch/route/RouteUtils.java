@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.service.GoogleMapsApiService;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,22 +33,25 @@ public class RouteUtils {
                             try {
                                 int seconds = Integer.parseInt(duration.replace("s", ""));
                                 etaMinutes = (int) Math.round(seconds / 60.0);
-                            } catch (Exception ignore) {
+                            } catch (Exception e) {
                                 Log.e("RouteUtils", "Failed to parse seconds from duration: " + duration);
+                                FirebaseCrashlytics.getInstance().recordException(e);
                             }
                         } else if (duration.endsWith("m")) {
                             try {
                                 etaMinutes = Integer.parseInt(duration.replace("m", ""));
-                            } catch (Exception ignore) {
+                            } catch (Exception e) {
                                 Log.e("RouteUtils", "Failed to parse minutes from duration: " + duration);
+                                FirebaseCrashlytics.getInstance().recordException(e);
                             }
                         }
                     } else if (duration != null && duration.endsWith("s")) {
                         try {
                             int seconds = Integer.parseInt(duration.replace("s", ""));
                             etaMinutes = (int) Math.round(seconds / 60.0);
-                        } catch (Exception ignore) {
+                        } catch (Exception e) {
                             Log.e("RouteUtils", "Failed to parse seconds from duration: " + duration);
+                            FirebaseCrashlytics.getInstance().recordException(e);
                         }
                     }
                     double miles = distance >= 0 ? distance / 1609.34 : -1;
@@ -60,6 +64,7 @@ public class RouteUtils {
                 }
             } catch (Exception ex) {
                 Log.e("RouteUtils", "API call failed: " + ex.getMessage(), ex);
+                FirebaseCrashlytics.getInstance().recordException(ex);
                 message = "API call failed: " + ex.getMessage();
             }
             String finalMessage = message;

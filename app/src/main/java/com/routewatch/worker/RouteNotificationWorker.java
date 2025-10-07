@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import com.google.firebase.analytics.FirebaseAnalytics;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.BuildConfig;
 import com.routewatch.model.Route;
 import com.routewatch.route.RouteManager;
@@ -54,6 +55,7 @@ public class RouteNotificationWorker extends Worker {
                         WorkManagerHelper.scheduleRouteNotification(getApplicationContext(), route);
                     } catch (Exception e) {
                         Log.e(COMMON_TAG, "Failed to show notification: " + e.getMessage(), e);
+                        FirebaseCrashlytics.getInstance().recordException(e);
                         Bundle params = new Bundle();
                         params.putString("exception_type", "notification_display_error");
                         params.putString("error_message", e.getMessage());
@@ -65,6 +67,7 @@ public class RouteNotificationWorker extends Worker {
             return Result.success();
         } catch (Exception e) {
             Log.e(COMMON_TAG, "Fatal error in doWork(): " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             Bundle params = new Bundle();
             params.putString("exception_type", "worker_execution_error");
             params.putString("error_message", e.getMessage());

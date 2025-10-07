@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.routewatch.R;
 import com.routewatch.model.Route;
 import com.routewatch.route.RouteManager;
@@ -41,6 +42,7 @@ public class RouteAlarmReceiver extends BroadcastReceiver {
             showNotification(context, "Time to check your route to " + route.getEndLocation());
         } catch (Exception e) {
             Log.e("RouteAlarmReceiver", "Failed to show notification: " + e.getMessage(), e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
 
         // Schedule the next notification using WorkManager
